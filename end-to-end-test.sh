@@ -90,7 +90,7 @@ do
       echo "  -k: keep temporary files and leave node_exporter running"
       echo "  -u: update fixture"
       echo "  -v: verbose output"
-      echo "  -s: use unix socket instead http connection"
+      echo "  -s: use unix socket"
       exit 1
       ;;
   esac
@@ -103,8 +103,6 @@ then
 fi
 
 if [ ${socket} -ne 0 ]; then
-  # create the file instead socket file so that check that
-  # node_exporter removes it and creates the right socket file
   touch "${unix_socket}"
   connection_params="--web.socket-path=${unix_socket}"
 else
@@ -150,13 +148,14 @@ EOF
     wait "$(cat ${tmpdir}/node_exporter.pid)" > /dev/null 2>&1
     rc=0
     if [ ${socket} -ne 0 ]; then
-      ls -l "${unix_socket}" &> /dev/null
-      if [ $? -eq 0 ]; then
-        echo "Node exporter didn't remove the socket file after it's closed"
+      if ls -l "${unix_socket}" &> /dev/null; then
+        echo "Node exporter didn't remove the socket file after it exiting"
         rc=1
       fi
     fi
     rm -rf "${tmpdir}"
+    # We should exit with non-zero code,
+    # if node exporter didn't remove the socket file.
     exit $rc
   fi
 }
@@ -177,12 +176,13 @@ get() {
 }
 
 sleep 1
-
-if [ ${socket} -ne 0 ]; then
-  curl -s -X GET --unix-socket "${unix_socket}" ./metrics | grep -E -v "${skip_re}" > "${tmpdir}/e2e-output.txt"
-else
-  get "127.0.0.1:${port}/metrics" | grep -E -v "${skip_re}" > "${tmpdir}/e2e-output.txt"
-fi
+(
+  if [ ${socket} -ne 0 ]; then
+    curl -s -X GET --unix-socket "${unix_socket}" ./metrics
+  else
+    get "127.0.0.1:${port}/metrics"
+  fi
+) | grep -E -v "${skip_re}" > "${tmpdir}/e2e-output.txt"
 
 diff -u \
   "${fixture}" \
