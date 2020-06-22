@@ -32,17 +32,14 @@ curl https://dl.google.com/go/go1.14.4.linux-386.tar.gz --output %{_tmppath}/go.
 tar xzf %{_tmppath}/go.tar.gz -C %{_tmppath}
 export PATH=$PATH:%{_tmppath}/go/bin
 export GOROOT=%{_tmppath}/go
-export GOPATH=%{_tmppath}/%{name}-%{version}-%{release}-buildroot
+export GOPATH=%{_tmppath}
 make build
 rm -rf "${GOROOT}"
 
 
 %check
 cd "${GOPATH}"
-echo ">> running end-to-end tests"
-./end-to-end-test.sh
-echo ">> running end-to-end tests with unix socket"
-./end-to-end-test.sh -s
+make test
 
 
 %install
