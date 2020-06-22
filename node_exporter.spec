@@ -34,11 +34,6 @@ export PATH=$PATH:%{_tmppath}/go/bin
 export GOROOT=%{_tmppath}/go
 export GOPATH=%{_tmppath}
 make build
-rm -rf "${GOROOT}"
-
-
-%check
-cd "${GOPATH}"
 make test
 
 
