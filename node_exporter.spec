@@ -25,9 +25,9 @@ This package provides Node Exporter tool
 %build
 # download new version of Go compiler
 %ifarch x86_64 amd64 ia32e
-wget https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz -O %{_tmppath}/go.tar.gz
+curl https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz --output %{_tmppath}/go.tar.gz
 %else
-wget https://dl.google.com/go/go1.14.4.linux-386.tar.gz -O %{_tmppath}/go.tar.gz
+curl https://dl.google.com/go/go1.14.4.linux-386.tar.gz --output %{_tmppath}/go.tar.gz
 %endif
 tar xzf %{_tmppath}/go.tar.gz -C %{_tmppath}
 export PATH=$PATH:%{_tmppath}/go/bin
