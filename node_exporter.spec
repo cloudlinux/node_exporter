@@ -10,7 +10,6 @@ Group: System Environment/Base
 Source0: %{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
-BuildRequires: golang
 
 # Disable the building of the debug package(s).
 %define debug_package %{nil}
@@ -24,7 +23,26 @@ This package provides Node Exporter tool
 
 
 %build
-make
+# download new version of Go compiler
+%ifarch x86_64 amd64 ia32e
+wget https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz -O %{_tmppath}/go.tar.gz
+%else
+wget https://dl.google.com/go/go1.14.4.linux-386.tar.gz -O %{_tmppath}/go.tar.gz
+%endif
+tar xzf %{_tmppath}/go.tar.gz -C %{_tmppath}
+export PATH=$PATH:%{_tmppath}/go/bin
+export GOROOT=%{_tmppath}/go
+export GOPATH=%{_tmppath}/%{name}-%{version}-%{release}-buildroot
+make build
+rm -rf "${GOROOT}"
+
+
+%check
+cd "${GOPATH}"
+echo ">> running end-to-end tests"
+./end-to-end-test.sh
+echo ">> running end-to-end tests with unix socket"
+./end-to-end-test.sh -s
 
 
 %install
