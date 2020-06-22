@@ -34,7 +34,13 @@ export PATH=$PATH:%{_tmppath}/go/bin
 export GOROOT=%{_tmppath}/go
 export GOPATH=%{_tmppath}
 make build
+
+%check
 make test
+# run cross-testing
+%ifarch x86_64 amd64 ia32e
+make test-32bit
+%endif
 
 
 %install
