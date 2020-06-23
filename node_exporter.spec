@@ -4,8 +4,8 @@ Autoreq: 0
 Name: node-exporter
 Version: 1.0.1
 Release: 1%{dist}.cloudlinux
-Summary: Node Exporter tool
-License: CloudLinux Commercial License
+Summary: CL Node Exporter tool
+License: Apache License, Version 2.0
 Group: System Environment/Base
 Source0: %{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
@@ -14,8 +14,19 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 # Disable the building of the debug package(s).
 %define debug_package %{nil}
 
+
+%package tests
+Summary: Tests for CL Node Exporter version %{version}
+AutoReq: 0
+Group: Applications/System
+License: Apache License, Version 2.0
+
+
 %description
 This package provides Node Exporter tool
+
+%description tests
+This package provides end-to-end tests for Node Exporter tool
 
 
 %prep
@@ -40,17 +51,30 @@ make test
 make test-32bit
 %endif
 
+# build tests
+rm -rf collector/fixtures/sys
+./ttar -C collector/fixtures -x -f collector/fixtures/sys.ttar
+
 
 %install
-%{__rm} -rf $RPM_BUILD_ROOT
+rm -rf $RPM_BUILD_ROOT
 
 install -D -m 755 node_exporter $RPM_BUILD_ROOT%{_clshare_plus}/node_exporter
+
+#install tests
+mkdir -p $RPM_BUILD_ROOT/opt/node_exporter_tests/collector
+cp -r collector/fixtures $RPM_BUILD_ROOT/opt/node_exporter_tests/collector/
+install -D -m 755 end-to-end-test.sh $RPM_BUILD_ROOT/opt/node_exporter_tests/end-to-end-test.sh
+install -D -m 755 node_exporter $RPM_BUILD_ROOT/opt/node_exporter_tests/node_exporter
 
 exit 0
 
 
 %files
 %{_clshare_plus}/node_exporter
+
+%files tests
+/opt/node_exporter_tests/*
 
 
 %changelog
