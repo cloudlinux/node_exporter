@@ -1,7 +1,7 @@
 Autoreq: 0
 %define _clshare_plus /usr/share/cloudlinux/cl_plus
 
-Name: node-exporter
+Name: cl-node-exporter
 Version: 1.0.1
 Release: 1%{dist}.cloudlinux
 Summary: CL Node Exporter tool
