@@ -2,7 +2,7 @@ Autoreq: 0
 %define _clshare_plus /usr/share/cloudlinux/cl_plus
 
 Name: cl-node-exporter
-Version: 1.0.1
+Version: 1.1.0
 Release: 1%{dist}.cloudlinux
 Summary: CL Node Exporter tool
 License: Apache License, Version 2.0
@@ -78,6 +78,9 @@ exit 0
 
 
 %changelog
+
+* Fri Jun 26 2020 Stepan Oksanichenko <soksanichenko@cloudlinux.com> 1.1.0-1
+- CMT-75: Added ability to use unix socket instead http connection
 
 * Mon Jun 03 2020 Stepan Oksanichenko <soksanichenko@cloudlinux.com> 1.0.1-1
 - CMT-18: [End Server tools] Build node exporter from sources in cloudlinux
