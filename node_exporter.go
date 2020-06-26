@@ -15,10 +15,14 @@ package main
 
 import (
 	"fmt"
+	"github.com/prometheus/node_exporter/https"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"sort"
+	"syscall"
 
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
@@ -29,7 +33,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/node_exporter/collector"
-	"github.com/prometheus/node_exporter/https"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -137,7 +140,19 @@ func (h *handler) innerHandler(filters ...string) (http.Handler, error) {
 }
 
 func main() {
+
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
+
 	var (
+		socketPath = kingpin.Flag(
+			"web.socket-path",
+			"Path to a unix socket file on which to expose metrics and web interface.",
+		).String()
+		socketPermissions = kingpin.Flag(
+			"web.socket-permissions",
+			"Permissions of unix socket file.",
+		).Default("0640").Int32()
 		listenAddress = kingpin.Flag(
 			"web.listen-address",
 			"Address on which to expose metrics and web interface.",
@@ -188,10 +203,42 @@ func main() {
 			</html>`))
 	})
 
-	level.Info(logger).Log("msg", "Listening on", "address", *listenAddress)
-	server := &http.Server{Addr: *listenAddress}
-	if err := https.Listen(server, *configFile, logger); err != nil {
-		level.Error(logger).Log("err", err)
-		os.Exit(1)
+	humanAddress := "address " + *listenAddress
+	if *socketPath != "" {
+		humanAddress = "path " + *socketPath
 	}
+	var server *http.Server
+	var serve func() error
+	level.Info(logger).Log("msg", "Listening on", "address", humanAddress)
+	server = &http.Server{}
+	if *socketPath == "" {
+		server = &http.Server{Addr: *listenAddress}
+		serve = func() error {
+			return https.Listen(server, *configFile, logger)
+		}
+	} else {
+		os.Remove(*socketPath)
+		unixListener, err := net.Listen("unix", *socketPath)
+		if err != nil {
+			level.Error(logger).Log("err", err)
+			os.Exit(1)
+		}
+		if err := os.Chmod(*socketPath, os.FileMode(*socketPermissions)); err != nil {
+			level.Error(logger).Log("err", err)
+			os.Exit(1)
+		}
+		serve = func() error {
+			return server.Serve(unixListener)
+		}
+	}
+	go func() {
+		if err := serve(); err != nil {
+			level.Error(logger).Log("err", err)
+			os.Exit(1)
+		}
+	}()
+	<-done
+	level.Info(logger).Log("msg", "Connection closed on", humanAddress)
+	server.Close()
+	os.Exit(0)
 }
