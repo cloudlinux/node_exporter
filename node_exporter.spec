@@ -5,7 +5,7 @@ Autoreq: 0
 
 Name: cl-node-exporter
 Version: 1.1.0
-Release: 1%{dist}.cloudlinux
+Release: 2%{dist}.cloudlinux
 Summary: CL Node Exporter tool
 License: Apache License, Version 2.0
 Group: System Environment/Base
@@ -87,6 +87,9 @@ exit 0
 
 
 %changelog
+
+* Wed Aug 19 2020 Stepan Oksanichenko <soksanichenko@cloudlinux.com> 1.1.0-2
+- CMT-221: Add package versions tags to sentry
 
 * Fri Jun 26 2020 Stepan Oksanichenko <soksanichenko@cloudlinux.com> 1.1.0-1
 - CMT-75: Added ability to use unix socket instead http connection
