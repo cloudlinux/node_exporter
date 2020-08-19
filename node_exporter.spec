@@ -1,5 +1,7 @@
 Autoreq: 0
-%define _clshare_plus /usr/share/cloudlinux/cl_plus
+%define cl_dir /usr/share/cloudlinux/
+%define _clshare_plus %{cl_dir}cl_plus
+%define pkg_version_file %{cl_dir}%{name}
 
 Name: cl-node-exporter
 Version: 1.1.0
@@ -67,11 +69,18 @@ cp -r collector/fixtures $RPM_BUILD_ROOT/opt/node_exporter_tests/collector/
 install -D -m 755 end-to-end-test.sh $RPM_BUILD_ROOT/opt/node_exporter_tests/end-to-end-test.sh
 install -D -m 755 node_exporter $RPM_BUILD_ROOT/opt/node_exporter_tests/node_exporter
 
+# write package version to file
+if [[ ! -d "$RPM_BUILD_ROOT%{cl_dir}" ]]; then
+    mkdir -p $RPM_BUILD_ROOT%{cl_dir}
+fi
+echo "%{version}-%{release}" > $RPM_BUILD_ROOT%{pkg_version_file}
+
 exit 0
 
 
 %files
 %{_clshare_plus}/node_exporter
+%{pkg_version_file}
 
 %files tests
 /opt/node_exporter_tests/*
