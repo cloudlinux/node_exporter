@@ -1,0 +1,6 @@
+cl-node-exporter (1.1.0-3) stable; urgency=medium
+
+  [ Yehor Komarov ]
+  * CLPRO-2539: Added support for Ubuntu 22
+
+ -- Yehor Komarov <ykomarov@cloudlinux.com>  Wed, 8 Jan 2024 10:00:00 +0000
