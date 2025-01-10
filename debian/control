@@ -1,0 +1,18 @@
+Source: cl-node-exporter
+Section: admin
+Priority: optional
+Maintainer: CloudLinux Packaging Team <packager@cloudlinux.com>
+Build-Depends: debhelper (>= 9),
+    curl
+Standards-Version: 4.5.1
+Homepage: https://www.cloudlinux.com
+
+Package: cl-node-exporter
+Architecture: amd64
+Description: CL Node Exporter tool
+ This package provides Node Exporter tool.
+
+Package: cl-node-exporter-tests
+Architecture: amd64
+Description: Tests for CL Node Exporter
+ This package provides end-to-end tests for Node Exporter tool

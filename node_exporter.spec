@@ -5,7 +5,7 @@ Autoreq: 0
 
 Name: cl-node-exporter
 Version: 1.1.0
-Release: 2%{dist}.cloudlinux
+Release: 3%{dist}.cloudlinux
 Summary: CL Node Exporter tool
 License: Apache License, Version 2.0
 Group: System Environment/Base
