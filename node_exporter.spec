@@ -5,7 +5,7 @@ Autoreq: 0
 
 Name: cl-node-exporter
 Version: 1.1.0
-Release: 3%{dist}.cloudlinux
+Release: 4%{dist}.cloudlinux
 Summary: CL Node Exporter tool
 License: Apache License, Version 2.0
 Group: System Environment/Base
@@ -38,9 +38,9 @@ This package provides end-to-end tests for Node Exporter tool
 %build
 # download new version of Go compiler
 %ifarch x86_64 amd64 ia32e
-curl https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz --output %{_tmppath}/go.tar.gz
+curl https://dl.google.com/go/go1.23.4.linux-amd64.tar.gz --output %{_tmppath}/go.tar.gz
 %else
-curl https://dl.google.com/go/go1.14.4.linux-386.tar.gz --output %{_tmppath}/go.tar.gz
+curl https://dl.google.com/go/go1.23.4.linux-386.tar.gz --output %{_tmppath}/go.tar.gz
 %endif
 tar xzf %{_tmppath}/go.tar.gz -C %{_tmppath}
 export PATH=$PATH:%{_tmppath}/go/bin
@@ -87,6 +87,8 @@ exit 0
 
 
 %changelog
+* Wed Nov 26 2025 Ruslan Koliada <rkoliada@cloudlinux.com> 1.1.0-4
+- CLPRO-2821: Update Go version from 1.14.4 to 1.23.4
 
 * Wed Aug 19 2020 Stepan Oksanichenko <soksanichenko@cloudlinux.com> 1.1.0-2
 - CMT-221: Add package versions tags to sentry
