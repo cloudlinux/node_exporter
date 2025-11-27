@@ -47,10 +47,8 @@ export PATH=$PATH:%{_tmppath}/go/bin
 export GOROOT=%{_tmppath}/go
 export GOPATH=%{_tmppath}
 make build
-# Tests skipped: TLS test fixtures incompatible with Go 1.23+ security defaults
-# (TLS 1.1 and SHA1-RSA certificates rejected by modern crypto policy)
-# make test
-# make test-32bit
+# Run tests excluding https package (TLS tests incompatible with Go 1.23+ crypto policy)
+go test -short $(go list ./... | grep -v /https)
 
 # build tests
 rm -rf collector/fixtures/sys
