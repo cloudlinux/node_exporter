@@ -123,6 +123,8 @@ tools:
 test-e2e: build collector/fixtures/sys/.unpacked collector/fixtures/udev/.unpacked tools
 	@echo ">> running end-to-end tests"
 	./end-to-end-test.sh -e "$(E2E_EXTRA_FLAGS)"
+	@echo ">> running end-to-end tests with unix socket"
+	./end-to-end-test.sh -e "$(E2E_EXTRA_FLAGS)" -s
 
 .PHONY: skip-test-e2e
 skip-test-e2e:

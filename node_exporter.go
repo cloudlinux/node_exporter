@@ -16,13 +16,16 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"os/user"
 	"runtime"
 	"slices"
 	"sort"
+	"syscall"
 
 	"github.com/prometheus/common/promslog"
 	"github.com/prometheus/common/promslog/flag"
@@ -181,6 +184,14 @@ func (h *handler) innerHandler(filters ...string) (http.Handler, error) {
 
 func main() {
 	var (
+		socketPath = kingpin.Flag(
+			"web.socket-path",
+			"Path to a unix socket file on which to expose metrics and web interface.",
+		).String()
+		socketPermissions = kingpin.Flag(
+			"web.socket-permissions",
+			"Permissions of unix socket file.",
+		).Default("0640").Int32()
 		metricsPath = kingpin.Flag(
 			"web.telemetry-path",
 			"Path under which to expose metrics.",
@@ -244,8 +255,38 @@ func main() {
 	}
 
 	server := &http.Server{}
-	if err := web.ListenAndServe(server, toolkitFlags, logger); err != nil {
-		logger.Error(err.Error())
-		os.Exit(1)
+	if *socketPath != "" {
+		os.Remove(*socketPath)
+		unixListener, err := net.Listen("unix", *socketPath)
+		if err != nil {
+			logger.Error("Error listening on socket", "err", err)
+			os.Exit(1)
+		}
+		if err := os.Chmod(*socketPath, os.FileMode(*socketPermissions)); err != nil {
+			logger.Error("Error changing socket permissions", "err", err)
+			os.Exit(1)
+		}
+		defer os.Remove(*socketPath)
+
+		go func() {
+			if err := server.Serve(unixListener); err != nil && err != http.ErrServerClosed {
+				logger.Error("Error serving", "err", err)
+				os.Exit(1)
+			}
+		}()
+
+		done := make(chan os.Signal, 1)
+		signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
+		logger.Info("Listening on", "path", *socketPath)
+		<-done
+		logger.Info("Connection closed on", "path", *socketPath)
+		server.Close()
+		os.Remove(*socketPath)
+		os.Exit(0)
+	} else {
+		if err := web.ListenAndServe(server, toolkitFlags, logger); err != nil {
+			logger.Error(err.Error())
+			os.Exit(1)
+		}
 	}
 }

@@ -105,6 +105,7 @@ cd "$(dirname $0)"
 
 port="$((10000 + (RANDOM % 10000)))"
 tmpdir=$(mktemp -d /tmp/node_exporter_e2e_test.XXXXXX)
+unix_socket="${tmpdir}/node_exporter.socket"
 
 skip_re="^(go_|node_exporter_build_info|node_scrape_collector_duration_seconds|process_|node_textfile_mtime_seconds|node_time_(zone|seconds)|node_network_(receive|transmit)_(bytes|packets)_total)"
 
@@ -127,8 +128,8 @@ case "${arch}" in
     ;;
 esac
 
-extra_flags=""; keep=0; update=0; verbose=0
-while getopts 'e:hkuv' opt
+extra_flags=""; keep=0; update=0; verbose=0; socket=0
+while getopts 'e:hkuvs' opt
 do
   case "$opt" in
     e)
@@ -140,15 +141,19 @@ do
     u)
       update=1
       ;;
+    s)
+      socket=1
+      ;;
     v)
       verbose=1
       set -x
       ;;
     *)
-      echo "Usage: $0 [-k] [-u] [-v]"
+      echo "Usage: $0 [-k] [-u] [-v] [-s]"
       echo "  -k: keep temporary files and leave node_exporter running"
       echo "  -u: update fixture_metrics"
       echo "  -v: verbose output"
+      echo "  -s: use unix socket"
       exit 1
       ;;
   esac
@@ -260,6 +265,13 @@ echo "IGNORED FLAGS============"
 echo "${ignored_flags:1}"| tr ' ' '\n' | sort | uniq
 echo "========================="
 
+if [ ${socket} -ne 0 ]; then
+  touch "${unix_socket}"
+  connection_params="--web.socket-path=${unix_socket}"
+else
+  connection_params="--web.listen-address=127.0.0.1:${port}"
+fi
+
 ./node_exporter \
   --path.rootfs="collector/fixtures" \
   --path.procfs="collector/fixtures/proc" \
@@ -268,7 +280,7 @@ echo "========================="
   $(for c in ${supported_enabled_collectors}; do echo --collector.${c}  ; done) \
   $(for c in ${supported_disabled_collectors}; do echo --no-collector.${c}  ; done) \
   ${filtered_collector_flags} \
-  --web.listen-address "127.0.0.1:${port}" \
+  ${connection_params} \
   --log.level="debug" > "${tmpdir}/node_exporter.log" 2>&1 &
 
 echo $! > "${tmpdir}/node_exporter.pid"
@@ -302,7 +314,17 @@ EOF
     # This silences the "Killed" message
     set +e
     wait "$(cat ${tmpdir}/node_exporter.pid)" > /dev/null 2>&1
+    rc=0
+    if [ ${socket} -ne 0 ]; then
+      if ls -l "${unix_socket}" &> /dev/null; then
+        echo "Node exporter didn't remove the socket file after it exiting"
+        rc=1
+      fi
+    fi
     rm -rf "${tmpdir}"
+    if [ $rc -ne 0 ]; then
+      exit $rc
+    fi
   fi
 }
 
@@ -323,7 +345,13 @@ get() {
 
 sleep 1
 
-get "127.0.0.1:${port}/metrics" | grep --text -E -v "${skip_re}" > "${generated_metrics}"
+(
+  if [ ${socket} -ne 0 ]; then
+    curl -s -X GET --unix-socket "${unix_socket}" http://localhost/metrics
+  else
+    get "127.0.0.1:${port}/metrics"
+  fi
+) | grep --text -E -v "${skip_re}" > "${generated_metrics}"
 
 # The following ignore-list is only applicable to the VMs used to run E2E tests on platforms for which containerized environments are not available.
 # However, owing to this, there are some non-deterministic metrics that end up generating samples, unlike their containerized counterparts, for e.g., node_network_receive_bytes_total. 
