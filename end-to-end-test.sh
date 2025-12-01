@@ -3,7 +3,7 @@
 set -euf -o pipefail
 
 # Allow setting GOHOSTOS for debugging purposes.
-GOHOSTOS=${GOHOSTOS:-$(go env GOHOSTOS)}
+GOHOSTOS=${GOHOSTOS:-$(go env GOHOSTOS 2>/dev/null || uname -s | tr '[:upper:]' '[:lower:]')}
 
 # Allow setting arch for debugging purposes.
 arch=${arch:-$(uname -m)}

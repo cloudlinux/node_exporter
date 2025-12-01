@@ -47,6 +47,7 @@ export PATH=$PATH:%{_tmppath}/go/bin
 export GOROOT=%{_tmppath}/go
 export GOPATH=%{_tmppath}
 make build
+make tools
 make test
 # run cross-testing
 %ifarch x86_64 amd64 ia32e
@@ -68,6 +69,11 @@ mkdir -p $RPM_BUILD_ROOT/opt/node_exporter_tests/collector
 cp -r collector/fixtures $RPM_BUILD_ROOT/opt/node_exporter_tests/collector/
 install -D -m 755 end-to-end-test.sh $RPM_BUILD_ROOT/opt/node_exporter_tests/end-to-end-test.sh
 install -D -m 755 node_exporter $RPM_BUILD_ROOT/opt/node_exporter_tests/node_exporter
+mkdir -p $RPM_BUILD_ROOT/opt/node_exporter_tests/tools
+install -D -m 755 tools/tools $RPM_BUILD_ROOT/opt/node_exporter_tests/tools/tools
+
+# remove broken symlinks
+find $RPM_BUILD_ROOT/opt/node_exporter_tests/collector/fixtures -xtype l -delete
 
 # write package version to file
 if [[ ! -d "$RPM_BUILD_ROOT%{cl_dir}" ]]; then
