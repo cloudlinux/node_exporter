@@ -65,6 +65,7 @@ rm -rf $RPM_BUILD_ROOT
 install -D -m 755 node_exporter $RPM_BUILD_ROOT%{_clshare_plus}/node_exporter
 
 #install tests
+mkdir -p $RPM_BUILD_ROOT/opt/node_exporter_tests/
 cp -r collector $RPM_BUILD_ROOT/opt/node_exporter_tests/
 install -D -m 755 end-to-end-test.sh $RPM_BUILD_ROOT/opt/node_exporter_tests/end-to-end-test.sh
 install -D -m 755 node_exporter $RPM_BUILD_ROOT/opt/node_exporter_tests/node_exporter
