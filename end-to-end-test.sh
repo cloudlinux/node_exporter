@@ -316,7 +316,9 @@ EOF
   if [ ${keep} -eq 0 ]
   then
     pid=$(cat "${tmpdir}/node_exporter.pid")
-    kill "$pid"
+    # Disown to prevent shell from printing "Terminated" message
+    disown "$pid" 2>/dev/null || true
+    kill "$pid" 2>/dev/null || true
     # Wait for the process to exit gracefully to allow socket cleanup
     for i in {1..100}; do
       if ! kill -0 "$pid" 2>/dev/null; then
@@ -327,9 +329,6 @@ EOF
     # Force kill if it's still running
     kill -9 "$pid" 2>/dev/null || true
 
-    # This silences the "Killed" message
-    set +e
-    wait "$pid" > /dev/null 2>&1
     rc=0
     if [ ${socket} -ne 0 ]; then
       if ls -l "${unix_socket}" &> /dev/null; then
