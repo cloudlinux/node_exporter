@@ -253,17 +253,19 @@ for flag in ${collector_flags}; do
   fi
 done
 
-echo "ENABLED COLLECTORS=======" >&2
-echo "${supported_enabled_collectors:1}" | tr ' ' '\n' | sort >&2
-echo "=========================" >&2
+cat << EOF > "${tmpdir}/config.log"
+ENABLED COLLECTORS=======
+$(echo "${supported_enabled_collectors:1}" | tr ' ' '\n' | sort)
+=========================
 
-echo "DISABLED COLLECTORS======" >&2
-echo "${supported_disabled_collectors:1}" | tr ' ' '\n' | sort >&2
-echo "=========================" >&2
+DISABLED COLLECTORS======
+$(echo "${supported_disabled_collectors:1}" | tr ' ' '\n' | sort)
+=========================
 
-echo "IGNORED FLAGS============" >&2
-echo "${ignored_flags:1}"| tr ' ' '\n' | sort | uniq >&2
-echo "=========================" >&2
+IGNORED FLAGS============
+$(echo "${ignored_flags:1}"| tr ' ' '\n' | sort | uniq)
+=========================
+EOF
 
 if [ ${socket} -ne 0 ]; then
   touch "${unix_socket}"
@@ -297,6 +299,9 @@ finish() {
   if [ $? -ne 0 -o ${verbose} -ne 0 ]
   then
     cat << EOF >&2
+CONFIG ==================
+$(cat "${tmpdir}/config.log")
+=========================
 LOG =====================
 $(cat "${tmpdir}/node_exporter.log")
 =========================
