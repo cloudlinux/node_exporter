@@ -253,17 +253,17 @@ for flag in ${collector_flags}; do
   fi
 done
 
-echo "ENABLED COLLECTORS======="
-echo "${supported_enabled_collectors:1}" | tr ' ' '\n' | sort
-echo "========================="
+echo "ENABLED COLLECTORS=======" >&2
+echo "${supported_enabled_collectors:1}" | tr ' ' '\n' | sort >&2
+echo "=========================" >&2
 
-echo "DISABLED COLLECTORS======"
-echo "${supported_disabled_collectors:1}" | tr ' ' '\n' | sort
-echo "========================="
+echo "DISABLED COLLECTORS======" >&2
+echo "${supported_disabled_collectors:1}" | tr ' ' '\n' | sort >&2
+echo "=========================" >&2
 
-echo "IGNORED FLAGS============"
-echo "${ignored_flags:1}"| tr ' ' '\n' | sort | uniq
-echo "========================="
+echo "IGNORED FLAGS============" >&2
+echo "${ignored_flags:1}"| tr ' ' '\n' | sort | uniq >&2
+echo "=========================" >&2
 
 if [ ${socket} -ne 0 ]; then
   touch "${unix_socket}"
@@ -313,7 +313,7 @@ EOF
     pid=$(cat "${tmpdir}/node_exporter.pid")
     kill "$pid"
     # Wait for the process to exit gracefully to allow socket cleanup
-    for i in {1..50}; do
+    for i in {1..100}; do
       if ! kill -0 "$pid" 2>/dev/null; then
         break
       fi

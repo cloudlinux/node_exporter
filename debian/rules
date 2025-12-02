@@ -32,6 +32,7 @@ override_dh_auto_build:
 	curl https://dl.google.com/go/go1.24.0.linux-amd64.tar.gz --output /tmp/go.tar.gz
 	tar xzf /tmp/go.tar.gz -C /tmp/
 	make build
+	make tools
 	make test
 	rm -rf collector/fixtures/sys
 	./ttar -C collector/fixtures -x -f collector/fixtures/sys.ttar
@@ -43,10 +44,12 @@ override_dh_auto_install:
 	install -D -m 755 node_exporter $(buildroot)$(_clshare_plus)/node_exporter
 
 	# Install tests
-	mkdir -p $(buildroot)/opt/node_exporter_tests/collector
-	cp -r collector/fixtures $(buildroot)/opt/node_exporter_tests/collector/
+	mkdir -p $(buildroot)/opt/node_exporter_tests/
+	cp -r collector $(buildroot)/opt/node_exporter_tests/
 	install -D -m 755 end-to-end-test.sh $(buildroot)/opt/node_exporter_tests/end-to-end-test.sh
 	install -D -m 755 node_exporter $(buildroot)/opt/node_exporter_tests/node_exporter
+	mkdir -p $(buildroot)/opt/node_exporter_tests/tools
+	install -D -m 755 tools/tools $(buildroot)/opt/node_exporter_tests/tools/tools
 
 	echo "$(version)-$(release)" > $(buildroot)/usr/share/cloudlinux/cl_version
 
@@ -57,7 +60,8 @@ override_dh_auto_install:
 	dh_movefiles -p$(name)-tests \
 		./opt/node_exporter_tests/collector/ \
 		./opt/node_exporter_tests/end-to-end-test.sh \
-		./opt/node_exporter_tests/node_exporter
+		./opt/node_exporter_tests/node_exporter \
+		./opt/node_exporter_tests/tools/
 
 	dh_installdirs -p$(name) \
 		.$(_clshare_plus)
