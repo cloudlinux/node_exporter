@@ -310,10 +310,21 @@ EOF
 
   if [ ${keep} -eq 0 ]
   then
-    kill -9 "$(cat ${tmpdir}/node_exporter.pid)"
+    pid=$(cat "${tmpdir}/node_exporter.pid")
+    kill "$pid"
+    # Wait for the process to exit gracefully to allow socket cleanup
+    for i in {1..50}; do
+      if ! kill -0 "$pid" 2>/dev/null; then
+        break
+      fi
+      sleep 0.1
+    done
+    # Force kill if it's still running
+    kill -9 "$pid" 2>/dev/null || true
+
     # This silences the "Killed" message
     set +e
-    wait "$(cat ${tmpdir}/node_exporter.pid)" > /dev/null 2>&1
+    wait "$pid" > /dev/null 2>&1
     rc=0
     if [ ${socket} -ne 0 ]; then
       if ls -l "${unix_socket}" &> /dev/null; then

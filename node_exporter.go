@@ -264,6 +264,7 @@ func main() {
 		}
 		if err := os.Chmod(*socketPath, os.FileMode(*socketPermissions)); err != nil {
 			logger.Error("Error changing socket permissions", "err", err)
+			os.Remove(*socketPath)
 			os.Exit(1)
 		}
 		defer os.Remove(*socketPath)
