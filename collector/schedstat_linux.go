@@ -11,17 +11,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !noshedstat
+//go:build !noshedstat
 
 package collector
 
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
 )
@@ -52,7 +51,7 @@ var (
 )
 
 // NewSchedstatCollector returns a new Collector exposing task scheduler statistics
-func NewSchedstatCollector(logger log.Logger) (Collector, error) {
+func NewSchedstatCollector(logger *slog.Logger) (Collector, error) {
 	fs, err := procfs.NewFS(*procPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open procfs: %w", err)
@@ -63,7 +62,7 @@ func NewSchedstatCollector(logger log.Logger) (Collector, error) {
 
 type schedstatCollector struct {
 	fs     procfs.FS
-	logger log.Logger
+	logger *slog.Logger
 }
 
 func init() {
@@ -74,7 +73,7 @@ func (c *schedstatCollector) Update(ch chan<- prometheus.Metric) error {
 	stats, err := c.fs.Schedstat()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			level.Debug(c.logger).Log("msg", "schedstat file does not exist")
+			c.logger.Debug("schedstat file does not exist")
 			return ErrNoData
 		}
 		return err

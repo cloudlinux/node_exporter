@@ -1,10 +1,339 @@
 ## master / unreleased
 
-* [CHANGE] Improve filter flag names.
 * [CHANGE]
 * [FEATURE]
-* [ENHANCEMENT] Include TCP OutRsts in netstat metrics
+* [ENHANCEMENT]
 * [BUGFIX]
+
+## 1.10.2 / 2025-10-25
+
+* [BUGFIX] meminfo: Fix typo in Zswap metric name #3455
+
+## 1.10.1 / 2025-10-25
+
+* [BUGFIX] filesystem: Fix mount points being collected multiple times #3376
+* [BUGFIX] filesystem: Refactor mountinfo parsing #3452
+* [BUGFIX] meminfo: Add Zswap/Zswapped metrics #3453
+
+## 1.10.0 / 2025-10-24
+
+* [CHANGE] mdadm: Use sysfs for RAID metrics #3031
+* [CHANGE] filesystem: Add erofs in default excluded fs #3313
+* [CHANGE] tcpstat: Use std lib binary.NativeEndian #3386
+* [FEATURE] pcidevice: Add new collector for PCIe devices #3339
+* [FEATURE] AIX: Add more metrics #3338
+* [FEATURE] systemd: Add Virtualization metrics #3254
+* [FEATURE] swaps: Add new collector #3428
+* [ENHANCEMENT] wifi: Add packet received and transmitted metrics #3382
+* [ENHANCEMENT] filesystem: Take super options into account for read-only #3387
+* [ENHANCEMENT] pcidevice: Add additional metrics #3425
+* [ENHANCEMENT] perf: Add `tlb_data` metrics #3436
+* [BUGFIX] interrupts: Fix OpenBSD interrupt device parsing #3288
+* [BUGFIX] diskstats: Simplify condition #3290
+* [BUGFIX] thermal: Sanitize darwin thermal strings #3294
+* [BUGFIX] filesystem: Fix Darwin collector cgo memory leak #3315
+* [BUGFIX] cpufreq: Fix: collector enable #3318
+* [BUGFIX] ethtool: Fix returning 0 for sanitized metrics #3335
+* [BUGFIX] netdev: Fix Darwin netdev i/o bytes metric #3336
+* [BUGFIX] systemd: Fix logging race #3364
+* [BUGFIX] filesystem: Fix duplicate Darwin CGO import #3391
+
+## 1.9.1 / 2025-04-01
+
+* [BUGFIX] pressure: Fix missing IRQ on older kernels #3263
+* [BUGFIX] Fix Darwin memory leak #3277
+
+## 1.9.0 / 2025-02-17
+
+* [CHANGE] meminfo: Convert linux implementation to use procfs lib #3049
+* [CHANGE] Update logging to use Go log/slog #3097
+* [FEATURE] filesystem: Add `node_filesystem_mount_info` metric #2970
+* [FEATURE] btrfs: Add metrics for commit statistics #3010
+* [FEATURE] interrupts: Add collector include/exclude filtering #3028
+* [FEATURE] interrupts: Add "exclude zeros" filtering #3028
+* [FEATURE] slabinfo: Add filters for slab name. #3041
+* [FEATURE] pressure: add IRQ PSI metrics #3048
+* [FEATURE] hwmon: Add include and exclude filter for sensors #3072
+* [FEATURE] filesystem: Add NetBSD support #3082
+* [FEATURE] netdev: Add ifAlias label #3087
+* [FEATURE] hwmon: Add Support for GPU Clock Frequencies #3093
+* [FEATURE] Add `exclude[]` URL parameter #3116
+* [FEATURE] Add AIX support #3136
+* [FEATURE] filesystem: Add fs-types/mount-points include flags #3171
+* [FEATURE] netstat: Add collector for tcp packet counters for FreeBSD. #3177
+* [ENHANCEMENT] ethtool: Add logging for filtering flags #2979
+* [ENHANCEMENT] netstat: Add TCPRcvQDrop to default metrics #3021
+* [ENHANCEMENT] diskstats: Add block device rotational #3022
+* [ENHANCEMENT] cpu: Support CPU online status #3032
+* [ENHANCEMENT] arp: optimize interface name resolution #3133
+* [ENHANCEMENT] textfile: Allow specifiying multiple directory globs #3135
+* [ENHANCEMENT] filesystem: Add reporting of purgeable space on MacOS #3206
+* [ENHANCEMENT] ethtool: Skip full scan of NetClass directories #3239
+* [BUGFIX] zfs: Prevent `procfs` integer underflow #2961
+* [BUGFIX] pressure: Fix collection on systems that do not expose a full CPU stat #3054
+* [BUGFIX] cpu: Fix FreeBSD 32-bit host support and plug memory leak #3083
+* [BUGFIX] hwmon: Add safety check to hwmon read #3134
+* [BUGFIX] zfs: Allow space in dataset name #3186
+
+## 1.8.1 / 2024-05-16
+
+* [BUGFIX] Fix CPU seconds on Solaris #2963
+* [BUGFIX] Sign Darwin/MacOS binaries #3008
+* [BUGFIX] Fix pressure collector nil reference #3016
+
+## 1.8.0 / 2024-04-24
+
+* [CHANGE] exec_bsd: Fix labels for `vm.stats.sys.v_syscall` sysctl #2895
+* [CHANGE] diskstats: Ignore zram devices on linux systems #2898
+* [CHANGE] textfile: Avoid inconsistent help-texts  #2962
+* [CHANGE] os: Removed caching of modtime/filename of os-release file #2987
+* [FEATURE] xfrm: Add new collector #2866
+* [FEATURE] watchdog: Add new collector #2880
+* [ENHANCEMENT] cpu_vulnerabilities: Add mitigation information label #2806
+* [ENHANCEMENT] nfsd: Handle new `wdeleg_getattr` attribute #2810
+* [ENHANCEMENT] netstat: Add TCPOFOQueue to default netstat metrics #2867
+* [ENHANCEMENT] filesystem: surface device errors #2923
+* [ENHANCEMENT] os: Add support end parsing #2982
+* [ENHANCEMENT] zfs: Log mib when sysctl read fails on FreeBSD #2975
+* [ENHANCEMENT] fibre_channel: update procfs to take into account optional attributes #2933
+* [BUGFIX] cpu: Fix debug log in cpu collector #2857
+* [BUGFIX] hwmon: Fix hwmon nil ptr #2873
+* [BUGFIX] hwmon: Fix hwmon error capture #2915
+* [BUGFIX] zfs: Revert "Add ZFS freebsd per dataset stats #2925
+* [BUGFIX] ethtool: Sanitize ethtool metric name keys #2940
+* [BUGFIX] fix: data race of NetClassCollector metrics initialization #2995
+
+## 1.7.0 / 2023-11-11
+
+* [FEATURE] Add ZFS freebsd per dataset stats #2753
+* [FEATURE] Add cpu vulnerabilities reporting from sysfs #2721
+* [ENHANCEMENT] Parallelize stat calls in Linux filesystem collector #1772
+* [ENHANCEMENT] Add missing linkspeeds to ethtool collector 2711
+* [ENHANCEMENT] Add CPU MHz as the value for `node_cpu_info` metric #2778
+* [ENHANCEMENT] Improve qdisc collector performance #2779
+* [ENHANCEMENT] Add include and exclude filter for hwmon collector #2699
+* [ENHANCEMENT] Optionally fetch ARP stats via rtnetlink instead of procfs #2777
+* [BUFFIX] Fix ZFS arcstats on FreeBSD 14.0+ 2754
+* [BUGFIX] Fallback to 32-bit stats in netdev #2757
+* [BUGFIX] Close btrfs.FS handle after use #2780
+* [BUGFIX] Move RO status before error return #2807
+* [BUFFIX] Fix `promhttp_metric_handler_errors_total` being always active #2808
+* [BUGFIX] Fix nfsd v4 index miss #2824
+
+## 1.6.1 / 2023-06-17
+
+Rebuild with latest Go compiler bugfix release.
+
+## 1.6.0 / 2023-05-27
+
+* [CHANGE] Fix cpustat when some cpus are offline #2318
+* [CHANGE] Remove metrics of offline CPUs in CPU collector #2605
+* [CHANGE] Deprecate ntp collector #2603
+* [CHANGE] Remove bcache `cache_readaheads_totals` metrics #2583
+* [CHANGE] Deprecate supervisord collector #2685
+* [FEATURE] Enable uname collector on NetBSD #2559
+* [FEATURE] NetBSD support for the meminfo collector #2570
+* [FEATURE] NetBSD support for CPU collector #2626
+* [FEATURE] Add FreeBSD collector for netisr subsystem #2668
+* [FEATURE] Add softirqs collector #2669
+* [ENHANCEMENT] Add suspended as a `node_zfs_zpool_state` #2449
+* [ENHANCEMENT] Add administrative state of Linux network interfaces #2515
+* [ENHANCEMENT] Log current value of GOMAXPROCS #2537
+* [ENHANCEMENT] Add profiler options for perf collector #2542
+* [ENHANCEMENT] Allow root path as metrics path #2590
+* [ENHANCEMENT] Add cpu frequency governor metrics #2569
+* [ENHANCEMENT] Add new landing page #2622
+* [ENHANCEMENT] Reduce privileges needed for btrfs device stats #2634
+* [ENHANCEMENT] Add ZFS `memory_available_bytes` #2687
+* [ENHANCEMENT] Use `SCSI_IDENT_SERIAL` as serial in diskstats #2612
+* [ENHANCEMENT] Read missing from netlink netclass attributes from sysfs #2669
+* [BUGFIX] perf: fixes for automatically detecting the correct tracefs mountpoints #2553
+* [BUGFIX] Fix `thermal_zone` collector noise #2554
+* [BUGFIX] Fix a problem fetching the user wire count on FreeBSD #2584
+* [BUGFIX] interrupts: Fix fields on linux aarch64 #2631
+* [BUGFIX] Remove metrics of offline CPUs in CPU collector #2605
+* [BUGFIX] Fix OpenBSD filesystem collector string parsing #2637
+* [BUGFIX] Fix bad reporting of `node_cpu_seconds_total` in OpenBSD #2663
+
+## 1.5.0 / 2022-11-29
+
+NOTE: This changes the Go runtime "GOMAXPROCS" to 1. This is done to limit the
+  concurrency of the exporter to 1 CPU thread at a time in order to avoid a
+  race condition problem in the Linux kernel (#2500) and parallel IO issues
+  on nodes with high numbers of CPUs/CPU threads (#1880).
+
+NOTE: A command line arg has been changed from `--web.config` to `--web.config.file`.
+
+* [CHANGE] Default GOMAXPROCS to 1 #2530
+* [FEATURE] Add multiple listeners and systemd socket listener activation #2393
+* [ENHANCEMENT] Add RTNL version of netclass collector #2492, #2528
+* [BUGFIX] Fix diskstats exclude flags #2487
+* [BUGFIX] Bump go/x/crypt and go/x/net #2488
+* [BUGFIX] Fix hwmon label sanitizer #2504
+* [BUGFIX] Use native endianness when encoding InetDiagMsg #2508
+* [BUGFIX] Fix btrfs device stats always being zero #2516
+* [BUGFIX] Security: Update exporter-toolkit (CVE-2022-46146) #2531
+
+## 1.4.1 / 2022-11-29
+
+* [BUGFIX] Fix diskstats exclude flags #2487
+* [BUGFIX] Security: Update go/x/crypto and go/x/net (CVE-2022-27191 CVE-2022-27664) #2488
+* [BUGFIX] Security: Update exporter-toolkit (CVE-2022-46146) #2531
+
+## 1.4.0 / 2022-09-24
+
+* [CHANGE] Merge metrics descriptions in textfile collector #2475
+* [FEATURE] [node-mixin] Add darwin dashboard to mixin #2351
+* [FEATURE] Add "isolated" metric on cpu collector on linux #2251
+* [FEATURE] Add cgroup summary collector #2408
+* [FEATURE] Add selinux collector #2205
+* [FEATURE] Add slab info collector #2376
+* [FEATURE] Add sysctl collector #2425
+* [FEATURE] Also track the CPU Spin time for OpenBSD systems #1971
+* [FEATURE] Add support for MacOS version #2471
+* [ENHANCEMENT] [node-mixin] Add missing selectors #2426
+* [ENHANCEMENT] [node-mixin] Change current datasource to grafana's default #2281
+* [ENHANCEMENT] [node-mixin] Change disk graph to disk table #2364
+* [ENHANCEMENT] [node-mixin] Change io time units to %util #2375
+* [ENHANCEMENT] Ad user_wired_bytes and laundry_bytes on *bsd #2266
+* [ENHANCEMENT] Add additional vm_stat memory metrics for darwin #2240
+* [ENHANCEMENT] Add device filter flags to arp collector #2254
+* [ENHANCEMENT] Add diskstats include and exclude device flags #2417
+* [ENHANCEMENT] Add node_softirqs_total metric #2221
+* [ENHANCEMENT] Add rapl zone name label option #2401
+* [ENHANCEMENT] Add slabinfo collector #1799
+* [ENHANCEMENT] Allow user to select port on NTP server to query #2270
+* [ENHANCEMENT] collector/diskstats: Add labels and metrics from udev #2404
+* [ENHANCEMENT] Enable builds against older macOS SDK #2327
+* [ENHANCEMENT] qdisk-linux: Add exclude and include flags for interface name #2432
+* [ENHANCEMENT] systemd: Expose systemd minor version #2282
+* [ENHANCEMENT] Use netlink for tcpstat collector #2322
+* [ENHANCEMENT] Use netlink to get netdev stats #2074
+* [ENHANCEMENT] Add additional perf counters for stalled frontend/backend cycles #2191
+* [ENHANCEMENT] Add btrfs device error stats #2193
+* [BUGFIX] [node-mixin] Fix fsSpaceAvailableCriticalThreshold and fsSpaceAvailableWarning #2352
+* [BUGFIX] Fix concurrency issue in ethtool collector #2289
+* [BUGFIX] Fix concurrency issue in netdev collector #2267
+* [BUGFIX] Fix diskstat reads and write metrics for disks with different sector sizes #2311
+* [BUGFIX] Fix iostat on macos broken by deprecation warning #2292
+* [BUGFIX] Fix NodeFileDescriptorLimit alerts #2340
+* [BUGFIX] Sanitize rapl zone names #2299
+* [BUGFIX] Add file descriptor close safely in test #2447
+* [BUGFIX] Fix race condition in os_release.go #2454
+* [BUGFIX] Skip ZFS IO metrics if their paths are missing #2451
+
+## 1.3.1 / 2021-12-01
+
+* [BUGFIX] Handle nil CPU thermal power status on M1 #2218
+* [BUGFIX] bsd: Ignore filesystems flagged as MNT_IGNORE. #2227
+* [BUGFIX] Sanitize UTF-8 in dmi collector #2229
+
+## 1.3.0 / 2021-10-20
+
+NOTE: In order to support globs in the textfile collector path, filenames exposed by
+      `node_textfile_mtime_seconds` now contain the full path name.
+
+* [CHANGE] Add path label to rapl collector #2146
+* [CHANGE] Exclude filesystems under /run/credentials #2157
+* [CHANGE] Add TCPTimeouts to netstat default filter #2189
+* [FEATURE] Add lnstat collector for metrics from /proc/net/stat/ #1771
+* [FEATURE] Add darwin powersupply collector #1777
+* [FEATURE] Add support for monitoring GPUs on Linux #1998
+* [FEATURE] Add Darwin thermal collector #2032
+* [FEATURE] Add os release collector #2094
+* [FEATURE] Add netdev.address-info collector #2105
+* [FEATURE] Add clocksource metrics to time collector #2197
+* [ENHANCEMENT] Support glob textfile collector directories #1985
+* [ENHANCEMENT] ethtool: Expose node_ethtool_info metric #2080
+* [ENHANCEMENT] Use include/exclude flags for ethtool filtering #2165
+* [ENHANCEMENT] Add flag to disable guest CPU metrics #2123
+* [ENHANCEMENT] Add DMI collector #2131
+* [ENHANCEMENT] Add threads metrics to processes collector #2164
+* [ENHANCEMENT] Reduce timer GC delays in the Linux filesystem collector #2169
+* [ENHANCEMENT] Add TCPTimeouts to netstat default filter #2189
+* [ENHANCEMENT] Use SysctlTimeval for boottime collector on BSD #2208
+* [BUGFIX] ethtool: Sanitize metric names #2093
+* [BUGFIX] Fix ethtool collector for multiple interfaces #2126
+* [BUGFIX] Fix possible panic on macOS #2133
+* [BUGFIX] Collect flag_info and bug_info only for one core #2156
+* [BUGFIX] Prevent duplicate ethtool metric names #2187
+
+## 1.2.2 / 2021-08-06
+
+* [BUGFIX] Fix processes collector long int parsing #2112
+
+## 1.2.1 / 2021-07-23
+
+* [BUGFIX] Fix zoneinfo parsing prometheus/procfs#386
+* [BUGFIX] Fix nvme collector log noise #2091
+* [BUGFIX] Fix rapl collector log noise #2092
+
+## 1.2.0 / 2021-07-15
+
+NOTE: Ignoring invalid network speed will be the default in 2.x
+NOTE: Filesystem collector flags have been renamed. `--collector.filesystem.ignored-mount-points` is now `--collector.filesystem.mount-points-exclude` and `--collector.filesystem.ignored-fs-types` is now `--collector.filesystem.fs-types-exclude`. The old flags will be removed in 2.x.
+
+* [CHANGE] Rename filesystem collector flags to match other collectors #2012
+* [CHANGE] Make node_exporter print usage to STDOUT #2039
+* [FEATURE] Add conntrack statistics metrics #1155
+* [FEATURE] Add ethtool stats collector #1832
+* [FEATURE] Add flag to ignore network speed if it is unknown #1989
+* [FEATURE] Add tapestats collector for Linux #2044
+* [FEATURE] Add nvme collector #2062
+* [ENHANCEMENT] Add ErrorLog plumbing to promhttp #1887
+* [ENHANCEMENT] Add more Infiniband counters #2019
+* [ENHANCEMENT] netclass: retrieve interface names and filter before parsing #2033
+* [ENHANCEMENT] Add time zone offset metric #2060
+* [BUGFIX] Handle errors from disabled PSI subsystem #1983
+* [BUGFIX] Fix panic when using backwards compatible flags #2000
+* [BUGFIX] Fix wrong value for OpenBSD memory buffer cache #2015
+* [BUGFIX] Only initiate collectors once #2048
+* [BUGFIX] Handle small backwards jumps in CPU idle #2067
+
+## 1.1.2 / 2021-03-05
+
+* [BUGFIX] Handle errors from disabled PSI subsystem #1983
+* [BUGFIX] Sanitize strings from /sys/class/power_supply #1984
+* [BUGFIX] Silence missing netclass errors #1986
+
+## 1.1.1 / 2021-02-12
+
+* [BUGFIX] Fix ineffassign issue #1957
+* [BUGFIX] Fix some noisy log lines #1962
+
+## 1.1.0 / 2021-02-05
+
+NOTE: We have improved some of the flag naming conventions (PR #1743). The old names are
+      deprecated and will be removed in 2.0. They will continue to work for backwards
+      compatibility.
+
+* [CHANGE] Improve filter flag names #1743
+* [CHANGE] Add btrfs and powersupplyclass to list of exporters enabled by default #1897
+* [FEATURE] Add fibre channel collector #1786
+* [FEATURE] Expose cpu bugs and flags as info metrics. #1788
+* [FEATURE] Add network_route collector #1811
+* [FEATURE] Add zoneinfo collector #1922
+* [ENHANCEMENT] Add more InfiniBand counters #1694
+* [ENHANCEMENT] Add flag to aggr ipvs metrics to avoid high cardinality metrics #1709
+* [ENHANCEMENT] Adding backlog/current queue length to qdisc collector #1732
+* [ENHANCEMENT] Include TCP OutRsts in netstat metrics #1733
+* [ENHANCEMENT] Add pool size to entropy collector #1753
+* [ENHANCEMENT] Remove CGO dependencies for OpenBSD amd64 #1774
+* [ENHANCEMENT] bcache: add writeback_rate_debug stats #1658
+* [ENHANCEMENT] Add check state for mdadm arrays via node_md_state metric #1810
+* [ENHANCEMENT] Expose XFS inode statistics #1870
+* [ENHANCEMENT] Expose zfs zpool state #1878
+* [ENHANCEMENT] Added an ability to pass collector.supervisord.url via SUPERVISORD_URL environment variable #1947
+* [BUGFIX] filesystem_freebsd: Fix label values #1728
+* [BUGFIX] Fix various procfs parsing errors #1735
+* [BUGFIX] Handle no data from powersupplyclass #1747
+* [BUGFIX] udp_queues_linux.go: change upd to udp in two error strings #1769
+* [BUGFIX] Fix node_scrape_collector_success behaviour #1816
+* [BUGFIX] Fix NodeRAIDDegraded to not use a string rule expressions #1827
+* [BUGFIX] Fix node_md_disks state label from fail to failed #1862
+* [BUGFIX] Handle EPERM for syscall in timex collector #1938
+* [BUGFIX] bcache: fix typo in a metric name #1943
+* [BUGFIX] Fix XFS read/write stats (https://github.com/prometheus/procfs/pull/343)
 
 ## 1.0.1 / 2020-06-15
 
@@ -21,7 +350,7 @@
 * The label named `state` on `node_systemd_service_restart_total` metrics was changed to `name` to better describe the metric. #1393
 * Refactoring of the mdadm collector changes several metrics
     - `node_md_disks_active` is removed
-    - `node_md_disks` now has a `state` label for "fail", "spare", "active" disks.
+    - `node_md_disks` now has a `state` label for "failed", "spare", "active" disks.
     - `node_md_is_active` is replaced by `node_md_state` with a state set of "active", "inactive", "recovering", "resync".
 * Additional label `mountaddr` added to NFS device metrics to distinguish mounts from the same URL, but different IP addresses. #1417
 * Metrics node_cpu_scaling_frequency_min_hrts and node_cpu_scaling_frequency_max_hrts of the cpufreq collector were renamed to node_cpu_scaling_frequency_min_hertz and node_cpu_scaling_frequency_max_hertz. #1510
@@ -207,7 +536,7 @@ Other breaking changes:
 * [CHANGE] Greatly reduce the metrics vmstat returns by default. #874
 * [CHANGE] Greatly trim what netstat collector exposes by default #876
 * [CHANGE] Drop `exec_` prefix and move `node_boot_time_seconds` from `exec` to new `boottime` collector and enable for Darwin/Dragonfly/FreeBSD/NetBSD/OpenBSD. #839, #901
-* [CHANGE] Remove depreated gmond collector #852
+* [CHANGE] Remove deprecated gmond collector #852
 * [CHANGE] align Darwin disk stat names with Linux #930
 * [FEATURE] Add `collect[]` parameter #699
 * [FEATURE] Add text collector conversion for ipmitool output. #746
@@ -252,7 +581,7 @@ Other breaking changes:
 **Breaking changes**
 
 This release contains major breaking changes to flag handling.
-* The flag library has been changed, all flags now require double-dashs. (`-foo` becomes `--foo`).
+* The flag library has been changed, all flags now require double-dashes. (`-foo` becomes `--foo`).
 * The collector selection flag has been replaced by individual boolean flags.
 * The `-collector.procfs` and `-collector.sysfs` flags have been renamed to `--path.procfs` and `--path.sysfs` respectively.
 
@@ -268,14 +597,14 @@ Windows support is now removed, the [wmi_exporter](https://github.com/martinlind
 * [CHANGE] Switch to kingpin flags #639
 * [CHANGE] Replace --collectors.enabled with per-collector flags #640
 * [FEATURE] Add ARP collector for Linux #540
-* [FEATURE] Add XFS colector for Linux #568, #575
+* [FEATURE] Add XFS collector for Linux #568, #575
 * [FEATURE] Add qdisc collector for Linux #580
 * [FEATURE] Add cpufreq stats for Linux #548
 * [FEATURE] Add diskstats for Darwin #593
 * [FEATURE] Add bcache collector for Linux #597
 * [FEATURE] Add parsing /proc/net/snmp6 file for Linux #615
 * [FEATURE] Add timex collector for Linux #664
-* [ENHANCEMENT] Include overal health status in smartmon.sh example script #546
+* [ENHANCEMENT] Include overall health status in smartmon.sh example script #546
 * [ENHANCEMENT] Include `guest_nice` in CPU collector #554
 * [ENHANCEMENT] Add exec_boot_time for freebsd, dragonfly #550
 * [ENHANCEMENT] Get full resolution for node_time #555

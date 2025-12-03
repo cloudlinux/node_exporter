@@ -11,17 +11,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !nodevstat
+//go:build !nodevstat
 
 package collector
 
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"unsafe"
 
-	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -42,7 +42,7 @@ type devstatCollector struct {
 	duration  typedDesc
 	busyTime  typedDesc
 	blocks    typedDesc
-	logger    log.Logger
+	logger    *slog.Logger
 }
 
 func init() {
@@ -50,7 +50,7 @@ func init() {
 }
 
 // NewDevstatCollector returns a new Collector exposing Device stats.
-func NewDevstatCollector(logger log.Logger) (Collector, error) {
+func NewDevstatCollector(logger *slog.Logger) (Collector, error) {
 	return &devstatCollector{
 		devinfo: &C.struct_devinfo{},
 		bytes: typedDesc{prometheus.NewDesc(

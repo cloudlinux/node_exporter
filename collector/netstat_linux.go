@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !nonetstat
+//go:build !nonetstat
 
 package collector
 
@@ -20,14 +20,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
+	"maps"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/go-kit/kit/log"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 const (
@@ -35,12 +36,12 @@ const (
 )
 
 var (
-	netStatFields = kingpin.Flag("collector.netstat.fields", "Regexp of fields to return for netstat collector.").Default("^(.*_(InErrors|InErrs)|Ip_Forwarding|Ip(6|Ext)_(InOctets|OutOctets)|Icmp6?_(InMsgs|OutMsgs)|TcpExt_(Listen.*|Syncookies.*|TCPSynRetrans)|Tcp_(ActiveOpens|InSegs|OutSegs|OutRsts|PassiveOpens|RetransSegs|CurrEstab)|Udp6?_(InDatagrams|OutDatagrams|NoPorts|RcvbufErrors|SndbufErrors))$").String()
+	netStatFields = kingpin.Flag("collector.netstat.fields", "Regexp of fields to return for netstat collector.").Default("^(.*_(InErrors|InErrs)|Ip_Forwarding|Ip(6|Ext)_(InOctets|OutOctets)|Icmp6?_(InMsgs|OutMsgs)|TcpExt_(Listen.*|Syncookies.*|TCPSynRetrans|TCPTimeouts|TCPOFOQueue|TCPRcvQDrop)|Tcp_(ActiveOpens|InSegs|OutSegs|OutRsts|PassiveOpens|RetransSegs|CurrEstab)|Udp6?_(InDatagrams|OutDatagrams|NoPorts|RcvbufErrors|SndbufErrors))$").String()
 )
 
 type netStatCollector struct {
 	fieldPattern *regexp.Regexp
-	logger       log.Logger
+	logger       *slog.Logger
 }
 
 func init() {
@@ -49,7 +50,7 @@ func init() {
 
 // NewNetStatCollector takes and returns
 // a new Collector exposing network stats.
-func NewNetStatCollector(logger log.Logger) (Collector, error) {
+func NewNetStatCollector(logger *slog.Logger) (Collector, error) {
 	pattern := regexp.MustCompile(*netStatFields)
 	return &netStatCollector{
 		fieldPattern: pattern,
@@ -72,12 +73,8 @@ func (c *netStatCollector) Update(ch chan<- prometheus.Metric) error {
 	}
 	// Merge the results of snmpStats into netStats (collisions are possible, but
 	// we know that the keys are always unique for the given use case).
-	for k, v := range snmpStats {
-		netStats[k] = v
-	}
-	for k, v := range snmp6Stats {
-		netStats[k] = v
-	}
+	maps.Copy(netStats, snmpStats)
+	maps.Copy(netStats, snmp6Stats)
 	for protocol, protocolStats := range netStats {
 		for name, value := range protocolStats {
 			key := protocol + "_" + name

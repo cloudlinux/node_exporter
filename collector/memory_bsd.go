@@ -11,15 +11,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build freebsd dragonfly
-// +build !nomeminfo
+//go:build (freebsd || dragonfly) && !nomeminfo
 
 package collector
 
 import (
 	"fmt"
+	"log/slog"
 
-	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sys/unix"
 )
@@ -32,7 +31,7 @@ type memoryCollector struct {
 	pageSize uint64
 	sysctls  []bsdSysctl
 	kvm      kvm
-	logger   log.Logger
+	logger   *slog.Logger
 }
 
 func init() {
@@ -40,7 +39,7 @@ func init() {
 }
 
 // NewMemoryCollector returns a new Collector exposing memory stats.
-func NewMemoryCollector(logger log.Logger) (Collector, error) {
+func NewMemoryCollector(logger *slog.Logger) (Collector, error) {
 	tmp32, err := unix.SysctlUint32("vm.stats.vm.v_page_size")
 	if err != nil {
 		return nil, fmt.Errorf("sysctl(vm.stats.vm.v_page_size) failed: %w", err)
@@ -82,6 +81,13 @@ func NewMemoryCollector(logger log.Logger) (Collector, error) {
 				conversion:  fromPage,
 			},
 			{
+				name:        "user_wired_bytes",
+				description: "Locked in memory by user, mlock, etc",
+				mib:         "vm.stats.vm.v_user_wire_count",
+				conversion:  fromPage,
+				dataType:    bsdSysctlTypeCLong,
+			},
+			{
 				name:        "cache_bytes",
 				description: "Almost free, backed by swap or files, available for re-allocation",
 				mib:         "vm.stats.vm.v_cache_count",
@@ -97,6 +103,12 @@ func NewMemoryCollector(logger log.Logger) (Collector, error) {
 				name:        "free_bytes",
 				description: "Unallocated, available for allocation",
 				mib:         "vm.stats.vm.v_free_count",
+				conversion:  fromPage,
+			},
+			{
+				name:        "laundry_bytes",
+				description: "Dirty not recently used by userland",
+				mib:         "vm.stats.vm.v_laundry_count",
 				conversion:  fromPage,
 			},
 			{

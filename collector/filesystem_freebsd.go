@@ -11,50 +11,52 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !nofilesystem
+//go:build !nofilesystem
 
 package collector
 
 import (
-	"github.com/go-kit/kit/log/level"
 	"golang.org/x/sys/unix"
 )
 
 const (
-	defIgnoredMountPoints = "^/(dev)($|/)"
-	defIgnoredFSTypes     = "^devfs$"
-	readOnly              = 0x1 // MNT_RDONLY
-	noWait                = 0x2 // MNT_NOWAIT
+	defMountPointsExcluded = "^/(dev)($|/)"
+	defFSTypesExcluded     = "^devfs$"
 )
 
 // Expose filesystem fullness.
 func (c *filesystemCollector) GetStats() ([]filesystemStats, error) {
-	n, err := unix.Getfsstat(nil, noWait)
+	n, err := unix.Getfsstat(nil, unix.MNT_NOWAIT)
 	if err != nil {
 		return nil, err
 	}
 	buf := make([]unix.Statfs_t, n)
-	_, err = unix.Getfsstat(buf, noWait)
+	_, err = unix.Getfsstat(buf, unix.MNT_NOWAIT)
 	if err != nil {
 		return nil, err
 	}
 	stats := []filesystemStats{}
 	for _, fs := range buf {
-		mountpoint := bytesToString(fs.Mntonname[:])
-		if c.ignoredMountPointsPattern.MatchString(mountpoint) {
-			level.Debug(c.logger).Log("msg", "Ignoring mount point", "mountpoint", mountpoint)
+		mountpoint := unix.ByteSliceToString(fs.Mntonname[:])
+		if c.mountPointFilter.ignored(mountpoint) {
+			c.logger.Debug("Ignoring mount point", "mountpoint", mountpoint)
 			continue
 		}
 
-		device := bytesToString(fs.Mntfromname[:])
-		fstype := bytesToString(fs.Fstypename[:])
-		if c.ignoredFSTypesPattern.MatchString(fstype) {
-			level.Debug(c.logger).Log("msg", "Ignoring fs type", "type", fstype)
+		device := unix.ByteSliceToString(fs.Mntfromname[:])
+		fstype := unix.ByteSliceToString(fs.Fstypename[:])
+		if c.fsTypeFilter.ignored(fstype) {
+			c.logger.Debug("Ignoring fs type", "type", fstype)
+			continue
+		}
+
+		if (fs.Flags & unix.MNT_IGNORE) != 0 {
+			c.logger.Debug("Ignoring mount flagged as ignore", "mountpoint", mountpoint)
 			continue
 		}
 
 		var ro float64
-		if (fs.Flags & readOnly) != 0 {
+		if (fs.Flags & unix.MNT_RDONLY) != 0 {
 			ro = 1
 		}
 

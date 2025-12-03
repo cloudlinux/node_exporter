@@ -11,16 +11,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !nocpu
+//go:build !nocpu
 
 package collector
 
 import (
 	"errors"
+	"log/slog"
 	"strconv"
 	"unsafe"
 
-	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -77,7 +77,7 @@ const maxCPUTimesLen = C.MAXCPU * C.CPUSTATES
 
 type statCollector struct {
 	cpu    *prometheus.Desc
-	logger log.Logger
+	logger *slog.Logger
 }
 
 func init() {
@@ -85,7 +85,7 @@ func init() {
 }
 
 // NewStatCollector returns a new Collector exposing CPU stats.
-func NewStatCollector(logger log.Logger) (Collector, error) {
+func NewStatCollector(logger *slog.Logger) (Collector, error) {
 	return &statCollector{
 		cpu:    nodeCPUSecondsDesc,
 		logger: logger,
@@ -93,7 +93,7 @@ func NewStatCollector(logger log.Logger) (Collector, error) {
 }
 
 func getDragonFlyCPUTimes() ([]float64, error) {
-	// We want time spent per-cpu per CPUSTATE.
+	// We want time spent per-CPU per CPUSTATE.
 	// CPUSTATES (number of CPUSTATES) is defined as 5U.
 	// States: CP_USER | CP_NICE | CP_SYS | CP_IDLE | CP_INTR
 	//

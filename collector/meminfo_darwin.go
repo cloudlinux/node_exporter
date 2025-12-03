@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !nomeminfo
+//go:build !nomeminfo
 
 package collector
 
@@ -23,10 +23,22 @@ import "C"
 import (
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
 )
+
+type meminfoCollector struct {
+	logger *slog.Logger
+}
+
+// NewMeminfoCollector returns a new Collector exposing memory stats.
+func NewMeminfoCollector(logger *slog.Logger) (Collector, error) {
+	return &meminfoCollector{
+		logger: logger,
+	}, nil
+}
 
 func (c *meminfoCollector) getMemInfo() (map[string]float64, error) {
 	host := C.mach_host_self()
@@ -39,7 +51,7 @@ func (c *meminfoCollector) getMemInfo() (map[string]float64, error) {
 		&infoCount,
 	)
 	if ret != C.KERN_SUCCESS {
-		return nil, fmt.Errorf("Couldn't get memory statistics, host_statistics returned %d", ret)
+		return nil, fmt.Errorf("couldn't get memory statistics, host_statistics returned %d", ret)
 	}
 	totalb, err := unix.Sysctl("hw.memsize")
 	if err != nil {
@@ -67,6 +79,8 @@ func (c *meminfoCollector) getMemInfo() (map[string]float64, error) {
 		"free_bytes":              ps * float64(vmstat.free_count),
 		"swapped_in_bytes_total":  ps * float64(vmstat.pageins),
 		"swapped_out_bytes_total": ps * float64(vmstat.pageouts),
+		"internal_bytes":          ps * float64(vmstat.internal_page_count),
+		"purgeable_bytes":         ps * float64(vmstat.purgeable_count),
 		"total_bytes":             float64(total),
 		"swap_used_bytes":         float64(swap.xsu_used),
 		"swap_total_bytes":        float64(swap.xsu_total),

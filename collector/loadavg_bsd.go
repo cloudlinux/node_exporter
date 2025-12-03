@@ -11,8 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build darwin dragonfly freebsd netbsd openbsd
-// +build !noloadavg
+//go:build (darwin || dragonfly || freebsd || netbsd || openbsd) && !noloadavg
 
 package collector
 

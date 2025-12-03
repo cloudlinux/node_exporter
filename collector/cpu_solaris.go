@@ -11,17 +11,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build solaris
-// +build !nocpu
+//go:build !nocpu
 
 package collector
 
 import (
+	"log/slog"
 	"strconv"
 
-	"github.com/go-kit/kit/log"
+	"github.com/illumos/go-kstat"
 	"github.com/prometheus/client_golang/prometheus"
-	kstat "github.com/siebenmann/go-kstat"
 )
 
 // #include <unistd.h>
@@ -29,14 +28,14 @@ import "C"
 
 type cpuCollector struct {
 	cpu    typedDesc
-	logger log.Logger
+	logger *slog.Logger
 }
 
 func init() {
 	registerCollector("cpu", defaultEnabled, NewCpuCollector)
 }
 
-func NewCpuCollector(logger log.Logger) (Collector, error) {
+func NewCpuCollector(logger *slog.Logger) (Collector, error) {
 	return &cpuCollector{
 		cpu:    typedDesc{nodeCPUSecondsDesc, prometheus.CounterValue},
 		logger: logger,
@@ -60,17 +59,17 @@ func (c *cpuCollector) Update(ch chan<- prometheus.Metric) error {
 		}
 
 		for k, v := range map[string]string{
-			"idle":   "cpu_ticks_idle",
-			"kernel": "cpu_ticks_kernel",
-			"user":   "cpu_ticks_user",
-			"wait":   "cpu_ticks_wait",
+			"idle":   "cpu_nsec_idle",
+			"kernel": "cpu_nsec_kernel",
+			"user":   "cpu_nsec_user",
+			"wait":   "cpu_nsec_wait",
 		} {
 			kstatValue, err := ksCPU.GetNamed(v)
 			if err != nil {
 				return err
 			}
 
-			ch <- c.cpu.mustNewConstMetric(float64(kstatValue.UintVal), strconv.Itoa(cpu), k)
+			ch <- c.cpu.mustNewConstMetric(float64(kstatValue.UintVal)/1e9, strconv.Itoa(cpu), k)
 		}
 	}
 	return nil

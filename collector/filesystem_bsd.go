@@ -11,16 +11,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build openbsd darwin,amd64 dragonfly
-// +build !nofilesystem
+//go:build dragonfly && !nofilesystem
 
 package collector
 
 import (
 	"errors"
 	"unsafe"
-
-	"github.com/go-kit/kit/log/level"
 )
 
 /*
@@ -32,9 +29,9 @@ import (
 import "C"
 
 const (
-	defIgnoredMountPoints = "^/(dev)($|/)"
-	defIgnoredFSTypes     = "^devfs$"
-	readOnly              = 0x1 // MNT_RDONLY
+	defMountPointsExcluded = "^/(dev)($|/)"
+	defFSTypesExcluded     = "^devfs$"
+	readOnly               = 0x1 // MNT_RDONLY
 )
 
 // Expose filesystem fullness.
@@ -49,15 +46,15 @@ func (c *filesystemCollector) GetStats() (stats []filesystemStats, err error) {
 	stats = []filesystemStats{}
 	for i := 0; i < int(count); i++ {
 		mountpoint := C.GoString(&mnt[i].f_mntonname[0])
-		if c.ignoredMountPointsPattern.MatchString(mountpoint) {
-			level.Debug(c.logger).Log("msg", "Ignoring mount point", "mountpoint", mountpoint)
+		if c.mountPointFilter.ignored(mountpoint) {
+			c.logger.Debug("Ignoring mount point", "mountpoint", mountpoint)
 			continue
 		}
 
 		device := C.GoString(&mnt[i].f_mntfromname[0])
 		fstype := C.GoString(&mnt[i].f_fstypename[0])
-		if c.ignoredFSTypesPattern.MatchString(fstype) {
-			level.Debug(c.logger).Log("msg", "Ignoring fs type", "type", fstype)
+		if c.fsTypeFilter.ignored(fstype) {
+			c.logger.Debug("Ignoring fs type", "type", fstype)
 			continue
 		}
 

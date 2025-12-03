@@ -11,23 +11,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !noipvs
+//go:build !noipvs
 
 package collector
 
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 type ipvsCollector struct {
@@ -36,7 +35,7 @@ type ipvsCollector struct {
 	backendLabels                                                               []string
 	backendConnectionsActive, backendConnectionsInact, backendWeight            typedDesc
 	connections, incomingPackets, outgoingPackets, incomingBytes, outgoingBytes typedDesc
-	logger                                                                      log.Logger
+	logger                                                                      *slog.Logger
 }
 
 type ipvsBackendStatus struct {
@@ -72,11 +71,11 @@ func init() {
 
 // NewIPVSCollector sets up a new collector for IPVS metrics. It accepts the
 // "procfs" config parameter to override the default proc location (/proc).
-func NewIPVSCollector(logger log.Logger) (Collector, error) {
+func NewIPVSCollector(logger *slog.Logger) (Collector, error) {
 	return newIPVSCollector(logger)
 }
 
-func newIPVSCollector(logger log.Logger) (*ipvsCollector, error) {
+func newIPVSCollector(logger *slog.Logger) (*ipvsCollector, error) {
 	var (
 		c         ipvsCollector
 		err       error
@@ -142,7 +141,7 @@ func (c *ipvsCollector) Update(ch chan<- prometheus.Metric) error {
 	if err != nil {
 		// Cannot access ipvs metrics, report no error.
 		if errors.Is(err, os.ErrNotExist) {
-			level.Debug(c.logger).Log("msg", "ipvs collector metrics are not available for this system")
+			c.logger.Debug("ipvs collector metrics are not available for this system")
 			return ErrNoData
 		}
 		return fmt.Errorf("could not get IPVS stats: %w", err)

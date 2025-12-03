@@ -11,15 +11,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build linux
-// +build !notimex
+//go:build linux && !notimex
 
 package collector
 
 import (
+	"errors"
 	"fmt"
+	"log/slog"
+	"os"
 
-	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sys/unix"
 )
@@ -35,6 +36,9 @@ const (
 	// 1 second in
 	nanoSeconds  = 1000000000
 	microSeconds = 1000000
+
+	// See NOTES in adjtimex(2).
+	ppm16frac = 1000000.0 * 65536.0
 )
 
 type timexCollector struct {
@@ -55,7 +59,7 @@ type timexCollector struct {
 	stbcnt,
 	tai,
 	syncStatus typedDesc
-	logger log.Logger
+	logger *slog.Logger
 }
 
 func init() {
@@ -63,7 +67,7 @@ func init() {
 }
 
 // NewTimexCollector returns a new Collector exposing adjtime(3) stats.
-func NewTimexCollector(logger log.Logger) (Collector, error) {
+func NewTimexCollector(logger *slog.Logger) (Collector, error) {
 	const subsystem = "timex"
 
 	return &timexCollector{
@@ -163,6 +167,10 @@ func (c *timexCollector) Update(ch chan<- prometheus.Metric) error {
 
 	status, err := unix.Adjtimex(timex)
 	if err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			c.logger.Debug("Not collecting timex metrics", "err", err)
+			return ErrNoData
+		}
 		return fmt.Errorf("failed to retrieve adjtimex stats: %w", err)
 	}
 
@@ -176,8 +184,6 @@ func (c *timexCollector) Update(ch chan<- prometheus.Metric) error {
 	} else {
 		divisor = microSeconds
 	}
-	// See NOTES in adjtimex(2).
-	const ppm16frac = 1000000.0 * 65536.0
 
 	ch <- c.syncStatus.mustNewConstMetric(syncStatus)
 	ch <- c.offset.mustNewConstMetric(float64(timex.Offset) / divisor)

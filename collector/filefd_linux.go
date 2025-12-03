@@ -11,18 +11,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !nofilefd
+//go:build !nofilefd
 
 package collector
 
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"log/slog"
 	"os"
 	"strconv"
 
-	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -31,7 +31,7 @@ const (
 )
 
 type fileFDStatCollector struct {
-	logger log.Logger
+	logger *slog.Logger
 }
 
 func init() {
@@ -39,7 +39,7 @@ func init() {
 }
 
 // NewFileFDStatCollector returns a new Collector exposing file-nr stats.
-func NewFileFDStatCollector(logger log.Logger) (Collector, error) {
+func NewFileFDStatCollector(logger *slog.Logger) (Collector, error) {
 	return &fileFDStatCollector{logger}, nil
 }
 
@@ -72,7 +72,7 @@ func parseFileFDStats(filename string) (map[string]string, error) {
 	}
 	defer file.Close()
 
-	content, err := ioutil.ReadAll(file)
+	content, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err
 	}

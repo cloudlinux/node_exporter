@@ -11,17 +11,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !nonetdev
+//go:build !nonetdev && !amd64
 
 package collector
 
 import (
 	"errors"
-	"regexp"
-	"strconv"
-
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"log/slog"
 )
 
 /*
@@ -32,8 +28,8 @@ import (
 */
 import "C"
 
-func getNetDevStats(ignore *regexp.Regexp, accept *regexp.Regexp, logger log.Logger) (map[string]map[string]string, error) {
-	netDev := map[string]map[string]string{}
+func getNetDevStats(filter *deviceFilter, logger *slog.Logger) (netDevStats, error) {
+	netDev := netDevStats{}
 
 	var ifap, ifa *C.struct_ifaddrs
 	if C.getifaddrs(&ifap) == -1 {
@@ -42,32 +38,39 @@ func getNetDevStats(ignore *regexp.Regexp, accept *regexp.Regexp, logger log.Log
 	defer C.freeifaddrs(ifap)
 
 	for ifa = ifap; ifa != nil; ifa = ifa.ifa_next {
-		if ifa.ifa_addr.sa_family == C.AF_LINK {
-			dev := C.GoString(ifa.ifa_name)
-			if ignore != nil && ignore.MatchString(dev) {
-				level.Debug(logger).Log("msg", "Ignoring device", "device", dev)
-				continue
-			}
-			if accept != nil && !accept.MatchString(dev) {
-				level.Debug(logger).Log("msg", "Ignoring device", "device", dev)
-				continue
-			}
+		if ifa.ifa_addr.sa_family != C.AF_LINK {
+			continue
+		}
 
-			devStats := map[string]string{}
-			data := (*C.struct_if_data)(ifa.ifa_data)
+		dev := C.GoString(ifa.ifa_name)
+		if filter.ignored(dev) {
+			logger.Debug("Ignoring device", "device", dev)
+			continue
+		}
 
-			devStats["receive_packets"] = strconv.Itoa(int(data.ifi_ipackets))
-			devStats["transmit_packets"] = strconv.Itoa(int(data.ifi_opackets))
-			devStats["receive_errs"] = strconv.Itoa(int(data.ifi_ierrors))
-			devStats["transmit_errs"] = strconv.Itoa(int(data.ifi_oerrors))
-			devStats["receive_bytes"] = strconv.Itoa(int(data.ifi_ibytes))
-			devStats["transmit_bytes"] = strconv.Itoa(int(data.ifi_obytes))
-			devStats["receive_multicast"] = strconv.Itoa(int(data.ifi_imcasts))
-			devStats["transmit_multicast"] = strconv.Itoa(int(data.ifi_omcasts))
-			devStats["receive_drop"] = strconv.Itoa(int(data.ifi_iqdrops))
-			netDev[dev] = devStats
+		data := (*C.struct_if_data)(ifa.ifa_data)
+
+		// https://github.com/openbsd/src/blob/master/sys/net/if.h#L101-L126
+		netDev[dev] = map[string]uint64{
+			"receive_packets":    uint64(data.ifi_ipackets),
+			"transmit_packets":   uint64(data.ifi_opackets),
+			"receive_bytes":      uint64(data.ifi_ibytes),
+			"transmit_bytes":     uint64(data.ifi_obytes),
+			"receive_errors":     uint64(data.ifi_ierrors),
+			"transmit_errors":    uint64(data.ifi_oerrors),
+			"receive_dropped":    uint64(data.ifi_iqdrops),
+			"transmit_dropped":   uint64(data.ifi_oqdrops),
+			"receive_multicast":  uint64(data.ifi_imcasts),
+			"transmit_multicast": uint64(data.ifi_omcasts),
+			"collisions":         uint64(data.ifi_collisions),
+			"noproto":            uint64(data.ifi_noproto),
 		}
 	}
 
 	return netDev, nil
+}
+
+func getNetDevLabels() (map[string]map[string]string, error) {
+	// to be implemented if needed
+	return nil, nil
 }

@@ -11,18 +11,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !nonfs
+//go:build !nonfs
 
 package collector
 
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"reflect"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs/nfs"
 )
@@ -39,7 +38,7 @@ type nfsCollector struct {
 	nfsRPCRetransmissionsDesc         *prometheus.Desc
 	nfsRPCAuthenticationRefreshesDesc *prometheus.Desc
 	nfsProceduresDesc                 *prometheus.Desc
-	logger                            log.Logger
+	logger                            *slog.Logger
 }
 
 func init() {
@@ -47,7 +46,7 @@ func init() {
 }
 
 // NewNfsCollector returns a new Collector exposing NFS statistics.
-func NewNfsCollector(logger log.Logger) (Collector, error) {
+func NewNfsCollector(logger *slog.Logger) (Collector, error) {
 	fs, err := nfs.NewFS(*procPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open procfs: %w", err)
@@ -99,7 +98,7 @@ func (c *nfsCollector) Update(ch chan<- prometheus.Metric) error {
 	stats, err := c.fs.ClientRPCStats()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			level.Debug(c.logger).Log("msg", "Not collecting NFS metrics", "err", err)
+			c.logger.Debug("Not collecting NFS metrics", "err", err)
 			return ErrNoData
 		}
 		return fmt.Errorf("failed to retrieve nfs stats: %w", err)

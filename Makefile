@@ -19,9 +19,10 @@ DOCKER_ARCHS ?= amd64 armv7 arm64 ppc64le s390x
 
 include Makefile.common
 
-PROMTOOL_VERSION ?= 2.18.1
+PROMTOOL_VERSION ?= 2.30.0
 PROMTOOL_URL     ?= https://github.com/prometheus/prometheus/releases/download/v$(PROMTOOL_VERSION)/prometheus-$(PROMTOOL_VERSION).$(GO_BUILD_PLATFORM).tar.gz
 PROMTOOL         ?= $(FIRST_GOPATH)/bin/promtool
+E2E_EXTRA_FLAGS  ?=
 
 DOCKER_IMAGE_NAME       ?= node-exporter
 MACH                    ?= $(shell uname -m)
@@ -45,18 +46,28 @@ else
 			PROMU_CONF ?= .promu-cgo.yml
 		endif
 	else
-		PROMU_CONF ?= .promu-cgo.yml
+		# Do not use CGO for openbsd/amd64 builds
+		ifeq ($(GOOS), openbsd)
+			ifeq ($(GOARCH), amd64)
+				PROMU_CONF ?= .promu.yml
+			else
+				PROMU_CONF ?= .promu-cgo.yml
+			endif
+		else
+			PROMU_CONF ?= .promu-cgo.yml
+		endif
 	endif
 endif
 
 PROMU := $(FIRST_GOPATH)/bin/promu --config $(PROMU_CONF)
 
+e2e-out-64k-page = collector/fixtures/e2e-64k-page-output.txt
 e2e-out = collector/fixtures/e2e-output.txt
 ifeq ($(MACH), ppc64le)
-	e2e-out = collector/fixtures/e2e-64k-page-output.txt
+	e2e-out = $(e2e-out-64k-page)
 endif
 ifeq ($(MACH), aarch64)
-	e2e-out = collector/fixtures/e2e-64k-page-output.txt
+	e2e-out = $(e2e-out-64k-page)
 endif
 
 # 64bit -> 32bit mapping for cross-checking. At least for amd64/386, the 64bit CPU can execute 32bit code but not the other way around, so we don't support cross-testing upwards.
@@ -78,12 +89,12 @@ $(eval $(call goarch_pair,mips64el,mipsel))
 all:: vet checkmetrics checkrules common-all $(cross-test) $(test-e2e)
 
 .PHONY: test
-test: collector/fixtures/sys/.unpacked
+test: collector/fixtures/sys/.unpacked collector/fixtures/udev/.unpacked
 	@echo ">> running tests"
 	$(GO) test -short $(test-flags) $(pkgs)
 
 .PHONY: test-32bit
-test-32bit: collector/fixtures/sys/.unpacked
+test-32bit: collector/fixtures/sys/.unpacked collector/fixtures/udev/.unpacked
 	@echo ">> running tests in 32-bit mode"
 	@env GOARCH=$(GOARCH_CROSS) $(GO) test $(pkgs)
 
@@ -93,20 +104,27 @@ skip-test-32bit:
 
 %/.unpacked: %.ttar
 	@echo ">> extracting fixtures"
-	if [ -d $(dir $@) ] ; then rm -r $(dir $@) ; fi
+	if [ -d $(dir $@) ] ; then rm -rf $(dir $@) ; fi
 	./ttar -C $(dir $*) -x -f $*.ttar
 	touch $@
 
 update_fixtures:
 	rm -vf collector/fixtures/sys/.unpacked
 	./ttar -C collector/fixtures -c -f collector/fixtures/sys.ttar sys
+	rm -vf collector/fixtures/udev/.unpacked
+	./ttar -C collector/fixtures -c -f collector/fixtures/udev.ttar udev
+
+.PHONY: tools
+tools:
+	@rm ./tools/tools >/dev/null 2>&1 || true
+	@$(GO) build -o tools/tools ./tools/...
 
 .PHONY: test-e2e
-test-e2e: build collector/fixtures/sys/.unpacked
+test-e2e: build collector/fixtures/sys/.unpacked collector/fixtures/udev/.unpacked tools
 	@echo ">> running end-to-end tests"
-	./end-to-end-test.sh
+	./end-to-end-test.sh -e "$(E2E_EXTRA_FLAGS)"
 	@echo ">> running end-to-end tests with unix socket"
-	./end-to-end-test.sh -s
+	./end-to-end-test.sh -e "$(E2E_EXTRA_FLAGS)" -s
 
 .PHONY: skip-test-e2e
 skip-test-e2e:
@@ -116,6 +134,7 @@ skip-test-e2e:
 checkmetrics: $(PROMTOOL)
 	@echo ">> checking metrics for correctness"
 	./checkmetrics.sh $(PROMTOOL) $(e2e-out)
+	./checkmetrics.sh $(PROMTOOL) $(e2e-out-64k-page)
 
 .PHONY: checkrules
 checkrules: $(PROMTOOL)
@@ -132,4 +151,4 @@ promtool: $(PROMTOOL)
 
 $(PROMTOOL):
 	mkdir -p $(FIRST_GOPATH)/bin
-	curl -fsS -L $(PROMTOOL_URL) | tar -xvzf - -C $(FIRST_GOPATH)/bin --no-anchored --strip 1 promtool
+	curl -fsS -L $(PROMTOOL_URL) | tar -xvzf - -C $(FIRST_GOPATH)/bin --strip 1 "prometheus-$(PROMTOOL_VERSION).$(GO_BUILD_PLATFORM)/promtool"

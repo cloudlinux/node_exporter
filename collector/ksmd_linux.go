@@ -11,15 +11,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !noksmd
+//go:build !noksmd
 
 package collector
 
 import (
 	"fmt"
+	"log/slog"
 	"path/filepath"
 
-	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -30,7 +30,7 @@ var (
 
 type ksmdCollector struct {
 	metricDescs map[string]*prometheus.Desc
-	logger      log.Logger
+	logger      *slog.Logger
 }
 
 func init() {
@@ -49,7 +49,7 @@ func getCanonicalMetricName(filename string) string {
 }
 
 // NewKsmdCollector returns a new Collector exposing kernel/system statistics.
-func NewKsmdCollector(logger log.Logger) (Collector, error) {
+func NewKsmdCollector(logger *slog.Logger) (Collector, error) {
 	subsystem := "ksmd"
 	descs := make(map[string]*prometheus.Desc)
 
