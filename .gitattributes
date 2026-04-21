@@ -1,0 +1,6 @@
+# AI assistant tooling — must not ship in src.rpm or binary packages
+/.agents export-ignore
+/.claude export-ignore
+/.cursor export-ignore
+AGENTS.md export-ignore
+CLAUDE.md export-ignore
