@@ -1,3 +1,10 @@
+cl-node-exporter (1.2.1-1) stable; urgency=medium
+
+  [ Roman Krompets ]
+  * CLPRO-3024: Sync node_exporter with upstream (v1.11.1)
+
+ -- Roman Krompets <rkrompets@cloudlinux.com>  Fri, 24 Apr 2026 10:00:00 +0000
+
 cl-node-exporter (1.2.0-1) stable; urgency=medium
 
   [ Ruslan Koliada ]
