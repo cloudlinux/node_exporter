@@ -4,7 +4,7 @@ Autoreq: 0
 %define pkg_version_file %{cl_dir}%{name}
 
 Name: cl-node-exporter
-Version: 1.2.0
+Version: 1.2.1
 Release: 1%{dist}.cloudlinux
 Summary: CL Node Exporter tool
 License: Apache License, Version 2.0
@@ -93,6 +93,9 @@ exit 0
 
 
 %changelog
+
+* Fri Apr 24 2026 Roman Krompets <rkrompets@cloudlinux.com> 1.2.1-1
+- CLPRO-3024: Sync repository with upstream (v1.11.1)
 
 * Mon Dec 01 2025 Ruslan Koliada <rkoliada@cloudlinux.com> 1.2.0-1
 - CLPRO-2902: Sync repository with upstream
