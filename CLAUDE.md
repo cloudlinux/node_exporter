@@ -52,85 +52,50 @@ update the spec in the same commit.
   socket support), prefer deleting the fork-local copy and documenting
   the change.
 
-## Creating a Build
+## AI Workspace Required
 
-This project ships as an RPM package (Build System name: `node_exporter`). Builds are submitted to the CloudLinux Build System via its CLI.
+Both the local-test and Build System workflows below assume you are inside an [AI Workspace](https://gitlab.corp.cloudlinux.com/clos/ci-tools/cl-aiworkspaces) VM at `/root/ai-workspace/`. They depend on:
 
-### Step 1 — Generate the build plan
+- the workspace's CloudLinux OS toolchain and any project-specific runtime (Python venv, Node, Docker, …) — needed by the local-build and unit-test targets;
+- the workspace's `mcp-cli-wrapper.sh` and provisioned Build System / Jenkins tokens — needed by the BS payload helper.
 
-```bash
-cd /root/ai-workspace/node_exporter
-git checkout <branch-or-tag>                # branch, tag, or detached HEAD
-uv run /root/ai-workspace/cl-aiworkspaces/workspace-side/scripts/build-plan.py
-```
+Outside an AI Workspace these commands will not work as documented. Spin up a workspace via `cl-aiworkspaces` first.
 
-The script reads `cl-aiworkspaces/.agents/skills/build-create/projects-catalog.yaml` to map this workspace directory to its Build System name(s) and emits a JSON plan on stdout (warnings/errors on stderr; exit 1 on fatal errors such as uncommitted changes).
+## Local Tests
 
-The plan contains:
-- `build_type_id` — build-type for the payload
-- `build_platforms` — target platforms (e.g. CL7, CL8, CL9)
-- `build_flavors` — flavor IDs
-- `projects` — project names, build refs, testing config
-- `jenkins_jobs` — Jenkins job IDs and definitions
+Run from the repo root (`/root/ai-workspace/node_exporter/`):
 
-### Step 2 — Filter the plan to this project only
+| Command | What it does |
+| --- | --- |
+| `make build` | Build the `node_exporter` binary |
+| `make test` | Run the upstream Go unit-test suite |
+| `make test-e2e` | Run the e2e harness (downloads collector fixtures on first run) |
+| `make checkmetrics && make checkrules` | Validate metric and rule schemas |
 
-The plan may include unrelated workspace projects. **Strip all entries from `projects` except `node_exporter`**, and keep only the Jenkins jobs relevant to it. One project per build — do not submit a multi-project payload.
+## Build System
 
-### Step 3 — Submit the build
+This repo ships as an RPM/DEB package: `node_exporter`. **Use the `/build-create` skill to submit builds** — it runs `build-plan.py` and submits the payload via the Build System CLI. The tables below are the project-specific overrides on top of that generic flow.
 
-```bash
-/root/ai-workspace/cl-aiworkspaces/workspace-side/mcps/mcp-cli-wrapper.sh build-system \
-  create-build --raw '<filtered-plan-json>'
-```
+### Parameters
 
-Minimum payload shape:
+Most fields come from `build-plan.py`; the table records what should end up in the final payload for a `node_exporter`-only build.
 
-```json
-{
-  "build_type_id": "<from plan>",
-  "build_platforms": [<from plan>],
-  "build_flavors": ["<flavor_id>"],
-  "target_channel": "beta",
-  "projects": [
-    {
-      "name": "node_exporter",
-      "build_ref": { "name": "<branch-or-tag>", "type": "git_branch" },
-      "testing": { "qa_ref": "<branch-or-tag>" }
-    }
-  ],
-  "jenkins_jobs": [<from plan — only jobs relevant to this project>]
-}
-```
+| Field | Value |
+| --- | --- |
+| BS project name | `node_exporter` |
+| `build_type_id` | `5ac2787bdf7e526d4a5f0259` (CloudLinux OS packages) |
+| `build_platforms` | `CL7`, `CL8`, `CL9`, `CL10`, `ubuntu22_04_ext_cpanel` |
+| `build_flavors` | `alt-php-els` (id `68b1ad89aa0264b2618434c8`) |
+| `target_channel` | `beta` |
+| `build_ref.name` | **Branch (or tag) to build.** `build-plan.py` reads this from the current `git` checkout in the workspace — confirm you are on the intended branch (your feature branch, not `master`) before generating the plan. |
+| `build_ref.type` | `git_branch` or `git_tag`. |
+| `testing.qa_ref` (per project) and top-level `qa_ref` | **Branch checked out in the QA repo for Jenkins jobs.** `build-plan.py` defaults both to `"master"` regardless of `build_ref.name` — override to your feature branch if the QA side has matching changes. |
 
-`build_ref.type` options: `git_branch`, `git_tag`, or `gerrit_change` (for `refs/changes/XX/NNNNN/PS` refs — the `qa_ref` should then be `NNNNN/PS`).
+### Jenkins jobs (node_exporter-relevant)
 
-The CLI returns a build ID. Build URL: `https://build.cloudlinux.com/#/build/<build_id>`.
+`build-plan.py` emits the workspace-wide plan covering every project in the workspace. For a `node_exporter`-only build, filter `projects[]` down to `node_exporter` and keep **only** these jobs in `jenkins_jobs[]`:
 
-### Step 4 — Monitor
-
-```bash
-/root/ai-workspace/cl-aiworkspaces/workspace-side/mcps/mcp-cli-wrapper.sh build-system \
-  get-build --build-id <build_id>
-```
-
-### Step 5 — Debug failures
-
-Search logs for errors:
-
-```bash
-/root/ai-workspace/cl-aiworkspaces/workspace-side/mcps/mcp-cli-wrapper.sh build-system \
-  search-build-logs --build-id <build_id> --query "error"
-```
-
-Common failure patterns:
-
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `FAILED` in test output | Test regression | Update the test — do not revert the code fix |
-| `ModuleNotFoundError` / `ImportError` | New dependency not declared | Add to the `.spec` `Requires`/`BuildRequires` (or equivalent) |
-| `SyntaxError` in build log | Source typo | Fix the source |
-| `%files`/`%install` mismatch | Spec file vs installed layout drift | Update the spec stanzas |
-| Dependency-resolution errors | `Requires` constraint wrong | Check spec file version constraints |
-
-After fixing, push to the same branch and re-run steps 1–3.
+| Job name | Build System `_id` |
+| --- | --- |
+| `CMT-end-server-tools` | `635b962c2afd3e1feec603bd` |
+| `clpro-ubuntu-tests` | `677e40a2f1b69faa0d69baf6` |
