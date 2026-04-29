@@ -54,7 +54,7 @@ update the spec in the same commit.
 
 ## AI Workspace Required
 
-Both the local-test and Build System workflows below assume you are inside an [AI Workspace](https://gitlab.corp.cloudlinux.com/clos/ci-tools/cl-aiworkspaces) VM at `/root/ai-workspace/`. They depend on:
+Both the local-test and Build System workflows below assume you are inside an [AI Workspace](https://gitlab.corp.cloudlinux.com/primeos/cl-aiworkspaces) VM at `/root/ai-workspace/`. They depend on:
 
 - the workspace's CloudLinux OS toolchain and any project-specific runtime (Python venv, Node, Docker, …) — needed by the local-build and unit-test targets;
 - the workspace's `mcp-cli-wrapper.sh` and provisioned Build System / Jenkins tokens — needed by the BS payload helper.
