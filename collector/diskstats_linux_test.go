@@ -348,6 +348,10 @@ node_disk_written_bytes_total{device="vda"} 1.0938236928e+11
 		}
 		close(sink)
 	}()
+	// Drain the sink so the Update goroutine ends before the test does and
+	// cannot race with flag parsing in the next test.
+	for range sink {
+	}
 
 	err = testutil.GatherAndCompare(reg, strings.NewReader(testcase))
 	if err != nil {
