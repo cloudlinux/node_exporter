@@ -31,7 +31,7 @@ package (`cl_plus`).
 |------|---------|
 | `/opt/node_exporter_tests/node_exporter` | Second copy of the built binary, used by the e2e harness. |
 | `/opt/node_exporter_tests/end-to-end-test.sh` | E2E harness script. Needs `curl`, and for `-s` also `stat` and `ss` (iproute), on the test host; the subpackage declares no dependencies (`AutoReq: 0`). |
-| `/opt/node_exporter_tests/collector/` | Fixture data (procfs/sysfs/udev snapshots). Broken symlinks under `fixtures/` are stripped during `%install` because dh on Ubuntu rejects them. |
+| `/opt/node_exporter_tests/collector/` | Fixture data (procfs/sysfs/udev snapshots). Broken symlinks under `fixtures/` are stripped during install because dh on Ubuntu rejects them. The RPM keeps the broken `sys/block/dm-*/slaves/*` links: the diskstats collector lists them by name for `node_disk_device_mapper_backing_device_info` (upstream v1.13.0+), and without them the e2e output misses five series in both modes. |
 | `/opt/node_exporter_tests/tools/tools` | Build-tag matcher helper used by the e2e script. |
 
 This subpackage exists so the QA pipeline can run the upstream e2e suite on
@@ -78,7 +78,10 @@ builds. The deb rules do not.
 
 - After install, `find $buildroot/opt/node_exporter_tests/collector/fixtures
   -xtype l -delete` removes broken symlinks produced by the procfs fixture
-  ttar archive. Without this, `dh_*` fails the build on Ubuntu.
+  ttar archive. Without this, `dh_*` fails the build on Ubuntu. Unlike the
+  RPM it also removes the `slaves/` links, so the deb tests package's e2e
+  would miss the five `node_disk_device_mapper_backing_device_info` series
+  for `dm-0`..`dm-4`; QA does not run the e2e on Ubuntu.
 - `override_dh_auto_clean` only removes `debian/tmp` — it does not invoke
   `make clean`, so the vendored Go toolchain in `/tmp/go` may persist
   between builds on a long-lived worker.

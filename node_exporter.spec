@@ -72,8 +72,9 @@ install -D -m 755 node_exporter $RPM_BUILD_ROOT/opt/node_exporter_tests/node_exp
 mkdir -p $RPM_BUILD_ROOT/opt/node_exporter_tests/tools
 install -D -m 755 tools/tools $RPM_BUILD_ROOT/opt/node_exporter_tests/tools/tools
 
-# remove broken symlinks
-find $RPM_BUILD_ROOT/opt/node_exporter_tests/collector/fixtures -xtype l -delete
+# remove broken symlinks, except block device slaves/ entries: the diskstats
+# collector reads them by name and the e2e output expects them
+find $RPM_BUILD_ROOT/opt/node_exporter_tests/collector/fixtures -xtype l ! -path '*/slaves/*' -delete
 
 # write package version to file
 if [[ ! -d "$RPM_BUILD_ROOT%{cl_dir}" ]]; then
