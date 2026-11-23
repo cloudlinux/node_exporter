@@ -30,8 +30,8 @@ package (`cl_plus`).
 | Path | Purpose |
 |------|---------|
 | `/opt/node_exporter_tests/node_exporter` | Second copy of the built binary, used by the e2e harness. |
-| `/opt/node_exporter_tests/end-to-end-test.sh` | E2E harness script. Needs `curl`, and for `-s` also `stat` and `ss` (iproute), on the test host; the subpackage declares no dependencies (`AutoReq: 0`). |
-| `/opt/node_exporter_tests/collector/` | Fixture data (procfs/sysfs/udev snapshots). Broken symlinks under `fixtures/` are stripped during install because dh on Ubuntu rejects them. The RPM keeps the broken `sys/block/dm-*/slaves/*` links: the diskstats collector lists them by name for `node_disk_device_mapper_backing_device_info` (upstream v1.13.0+), and without them the e2e output misses five series in both modes. |
+| `/opt/node_exporter_tests/end-to-end-test.sh` | E2E harness script. Needs `curl` and `diff` (diffutils), and for `-s` also `stat` and `ss` (iproute), on the test host; the subpackage declares no dependencies (`AutoReq: 0`). |
+| `/opt/node_exporter_tests/collector/` | Fixture data (procfs/sysfs/udev snapshots). Broken symlinks under `fixtures/` are stripped during install, except the broken `sys/block/dm-*/slaves/*` links, which both recipes keep: the diskstats collector lists them by name for `node_disk_device_mapper_backing_device_info` (upstream v1.13.0+), and without them the e2e output misses five series in both modes. |
 | `/opt/node_exporter_tests/tools/tools` | Build-tag matcher helper used by the e2e script. |
 
 This subpackage exists so the QA pipeline can run the upstream e2e suite on
@@ -77,11 +77,16 @@ builds. The deb rules do not.
 ### Debian-only conventions (`debian/rules`)
 
 - After install, `find $buildroot/opt/node_exporter_tests/collector/fixtures
-  -xtype l -delete` removes broken symlinks produced by the procfs fixture
-  ttar archive. Without this, `dh_*` fails the build on Ubuntu. Unlike the
-  RPM it also removes the `slaves/` links, so the deb tests package's e2e
-  would miss the five `node_disk_device_mapper_backing_device_info` series
-  for `dm-0`..`dm-4`; QA does not run the e2e on Ubuntu.
+  -xtype l ! -path '*/slaves/*' -delete` removes broken symlinks produced by
+  the sysfs fixture ttar archive, keeping the `slaves/` ones like the RPM
+  spec does. The removal was added because `dh_*` failed on broken links
+  (commit e978e382); debhelper 13.6 on Ubuntu 22.04 packages them fine.
+- `dh_movefiles` moves only files and symlinks, so empty fixture
+  directories (e.g. `sys/block/dm-5/slaves/sd*`, listed by the dmmultipath
+  collector) are created in the tests package directly with
+  `find -type d -empty -exec install -d`. Without them the deb tests
+  package's e2e misses the `node_dmmultipath_*` path series. QA does not
+  run the e2e on Ubuntu, so only a manual run catches this.
 - `override_dh_auto_clean` only removes `debian/tmp` — it does not invoke
   `make clean`, so the vendored Go toolchain in `/tmp/go` may persist
   between builds on a long-lived worker.
