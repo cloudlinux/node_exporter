@@ -30,7 +30,7 @@ package (`cl_plus`).
 | Path | Purpose |
 |------|---------|
 | `/opt/node_exporter_tests/node_exporter` | Second copy of the built binary, used by the e2e harness. |
-| `/opt/node_exporter_tests/end-to-end-test.sh` | E2E harness script. |
+| `/opt/node_exporter_tests/end-to-end-test.sh` | E2E harness script. Needs `curl`, and for `-s` also `stat` and `ss` (iproute), on the test host; the subpackage declares no dependencies (`AutoReq: 0`). |
 | `/opt/node_exporter_tests/collector/` | Fixture data (procfs/sysfs/udev snapshots). Broken symlinks under `fixtures/` are stripped during `%install` because dh on Ubuntu rejects them. |
 | `/opt/node_exporter_tests/tools/tools` | Build-tag matcher helper used by the e2e script. |
 
@@ -43,11 +43,24 @@ the exact binary that ships, including the CloudLinux unix-socket mode (see
 Both packages download and use a pinned upstream Go toolchain at build time
 rather than relying on the distro's `golang` package:
 
-- **Pinned version: `go1.24.0`.** Hard-coded in both `node_exporter.spec`
-  (`%build` section) and `debian/rules` (`override_dh_auto_build`).
-- **Source:** `https://dl.google.com/go/go1.24.0.linux-<arch>.tar.gz`.
+- **Pinned version: `go1.27.4`.** Hard-coded in both `node_exporter.spec`
+  (`%build` section) and `debian/rules` (`override_dh_auto_build`). It must
+  be at least the `go` directive in `go.mod` (`1.26.0` at upstream v1.13.1):
+  with an older toolchain the go command's default `GOTOOLCHAIN=auto`
+  silently downloads the required toolchain from `proxy.golang.org` (the
+  1.2.1 package pinned `go1.24.0` but its binary reports `go1.25.0`). The
+  pin follows the Go line upstream builds releases with (`.promu.yml`,
+  `setup-go` in `.github/workflows/ci.yml`), at its latest patch release.
+- **Source:** `https://dl.google.com/go/go1.27.4.linux-<arch>.tar.gz`
+  (`amd64`; the spec's non-x86_64 branch fetches `386`). The archive is not
+  checksum-verified by the recipes; the published SHA-256 values are listed
+  at `https://go.dev/dl/?mode=json`.
 - **Location:** extracted to `%{_tmppath}/go` (RPM) or `/tmp/go` (deb).
-- The pinned toolchain is prepended to `PATH` for the duration of the build.
+- The pinned toolchain is appended to `PATH` in the spec (a `go` already on
+  the builder's `PATH` would win) and prepended in `debian/rules`.
+- Go modules are not vendored: `make build` / `make test` download them
+  from the Go module proxy, and `make build` downloads `promu` from GitHub,
+  so build workers need internet access.
 
 RPM spec also runs 32-bit cross-testing (`make test-32bit`) on x86_64/amd64
 builds. The deb rules do not.
@@ -98,7 +111,8 @@ builds. The deb rules do not.
 
 | Aspect | Test | Type | Covers |
 |--------|------|------|--------|
-| Binary builds and e2e passes on RPM build workers | `%build` section of `node_exporter.spec` runs `make build`, `make test`, `make test-32bit` | RPM build-time | Compilation + unit tests + 32-bit cross-compile + e2e socket/TCP tests (`make test-e2e`) on RPM workers. Failure aborts the build. |
+| Binary builds and unit tests pass on RPM build workers | `%build` section of `node_exporter.spec` runs `make build`, `make tools`, `make test`, `make test-32bit` | RPM build-time | Compilation + unit tests (with `-race` on x86_64) + 32-bit cross-compile tests on RPM workers. Failure aborts the build. `make test-e2e` is not run here; the root-package tests that need a built binary skip (it is not at `$GOPATH/bin`). |
+| E2E over TCP and unix socket on the shipped binary | `rpm_tests/p_cl-node-exporter` in the QA repo runs `/opt/node_exporter_tests/end-to-end-test.sh` and `-s` | QA (installed package) | Both runs must exit 0 with no output. Ubuntu is skipped there (covered by `cl-end-server-tools` tests). |
 | Binary builds on Ubuntu build workers | `override_dh_auto_build` in `debian/rules` runs `make build`, `make tools`, `make test` | deb build-time | Compilation + unit tests on Ubuntu. (No `test-e2e` is wired in deb.) |
 | Fixture ttar archive is extractable | `make test-e2e` depends on `collector/fixtures/sys/.unpacked` and `collector/fixtures/udev/.unpacked` | Build | If the ttar archives are corrupt or missing, the build fails at extraction time. |
 
@@ -112,10 +126,10 @@ builds. The deb rules do not.
 - **Version-file format is not asserted.** If a future change to the spec
   accidentally drops the newline, quotes the string, or appends the
   architecture, Sentry tagging will silently degrade.
-- **Tests subpackage is not smoke-tested after install.** No CI job
-  installs `cl-node-exporter-tests` on a fresh VM and runs
-  `/opt/node_exporter_tests/end-to-end-test.sh` against the shipped
-  binary.
+- **Tests subpackage runs on RPM systems only.** QA's
+  `rpm_tests/p_cl-node-exporter` installs `cl-node-exporter-tests` and runs
+  the e2e harness against the shipped binary on CloudLinux, but skips
+  Ubuntu.
 - **No coverage for non-amd64 targets.** Non-x86_64 arches are not built
   and therefore not exercised at all for the RPM or deb paths, even
   though upstream supports them.
