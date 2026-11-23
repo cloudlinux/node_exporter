@@ -31,7 +31,7 @@ package (`cl_plus`).
 |------|---------|
 | `/opt/node_exporter_tests/node_exporter` | Second copy of the built binary, used by the e2e harness. |
 | `/opt/node_exporter_tests/end-to-end-test.sh` | E2E harness script. Needs `curl` and `diff` (diffutils), and for `-s` also `stat` and `ss` (iproute), on the test host; the subpackage declares no dependencies (`AutoReq: 0`). |
-| `/opt/node_exporter_tests/collector/` | Fixture data (procfs/sysfs/udev snapshots). Broken symlinks under `fixtures/` are stripped during install, except the broken `sys/block/dm-*/slaves/*` links, which both recipes keep: the diskstats collector lists them by name for `node_disk_device_mapper_backing_device_info` (upstream v1.13.0+), and without them the e2e output misses five series in both modes. |
+| `/opt/node_exporter_tests/collector/` | Fixture data (procfs/sysfs/udev snapshots). Both recipes strip broken symlinks under `fixtures/` during install, so the package ships none (see Invariants). The five broken `sys/block/dm-*/slaves/*` links are replaced by empty regular files of the same name instead: the diskstats collector only lists the entry names there (procfs `SysBlockDeviceUnderlyingDevices`, `Readdirnames`) for `node_disk_device_mapper_backing_device_info` (upstream v1.13.0+), and without them the e2e output misses five series in both modes. |
 | `/opt/node_exporter_tests/tools/tools` | Build-tag matcher helper used by the e2e script. |
 
 This subpackage exists so the QA pipeline can run the upstream e2e suite on
@@ -76,11 +76,6 @@ builds. The deb rules do not.
 
 ### Debian-only conventions (`debian/rules`)
 
-- After install, `find $buildroot/opt/node_exporter_tests/collector/fixtures
-  -xtype l ! -path '*/slaves/*' -delete` removes broken symlinks produced by
-  the sysfs fixture ttar archive, keeping the `slaves/` ones like the RPM
-  spec does. The removal was added because `dh_*` failed on broken links
-  (commit e978e382); debhelper 13.6 on Ubuntu 22.04 packages them fine.
 - `dh_movefiles` moves only files and symlinks, so empty fixture
   directories (e.g. `sys/block/dm-5/slaves/sd*`, listed by the dmmultipath
   collector) are created in the tests package directly with
@@ -110,6 +105,12 @@ builds. The deb rules do not.
 - **Tests subpackage is optional.** The binary package must function
   without `cl-node-exporter-tests` installed; the test subpackage is a
   QA-only artifact.
+- **No dangling symlinks in either package.** QA's
+  `rpm_tests/common/0_integrity_check.bats` ("symlinks are correct and
+  exists") fails a package with a symlink to a missing target, on every
+  target including Ubuntu. Fixture links that dangle after extraction are
+  deleted, or, where a collector needs the entry name, replaced by an empty
+  file in both recipes.
 - **Both architectures are amd64-only today.** Both `node_exporter.spec`
   (via the `%ifarch` x86_64/amd64/ia32e branches being the only curl'd Go
   archives) and `debian/control` (`Architecture: amd64`) restrict the
@@ -121,6 +122,7 @@ builds. The deb rules do not.
 |--------|------|------|--------|
 | Binary builds and unit tests pass on RPM build workers | `%build` section of `node_exporter.spec` runs `make build`, `make tools`, `make test`, `make test-32bit` | RPM build-time | Compilation + unit tests (with `-race` on x86_64) + 32-bit cross-compile tests on RPM workers. Failure aborts the build. `make test-e2e` is not run here; the root-package tests that need a built binary skip (it is not at `$GOPATH/bin`). |
 | E2E over TCP and unix socket on the shipped binary | `rpm_tests/p_cl-node-exporter` in the QA repo runs `/opt/node_exporter_tests/end-to-end-test.sh` and `-s` | QA (installed package) | Both runs must exit 0 with no output. Ubuntu is skipped there (covered by `cl-end-server-tools` tests). |
+| Packages ship no dangling symlinks | `rpm_tests/common/0_integrity_check.bats` in the QA repo ("symlinks are correct and exists") | QA (installed package) | Every symlink in `cl-node-exporter` and `cl-node-exporter-tests` must resolve; runs on all targets including Ubuntu. |
 | Binary builds on Ubuntu build workers | `override_dh_auto_build` in `debian/rules` runs `make build`, `make tools`, `make test` | deb build-time | Compilation + unit tests on Ubuntu. (No `test-e2e` is wired in deb.) |
 | Fixture ttar archive is extractable | `make test-e2e` depends on `collector/fixtures/sys/.unpacked` and `collector/fixtures/udev/.unpacked` | Build | If the ttar archives are corrupt or missing, the build fails at extraction time. |
 

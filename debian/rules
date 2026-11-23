@@ -51,9 +51,10 @@ override_dh_auto_install:
 	mkdir -p $(buildroot)/opt/node_exporter_tests/tools
 	install -D -m 755 tools/tools $(buildroot)/opt/node_exporter_tests/tools/tools
 
-	# remove broken symlinks, except block device slaves/ entries: the diskstats
-	# collector reads them by name and the e2e output expects them
-	find $(buildroot)/opt/node_exporter_tests/collector/fixtures -xtype l ! -path '*/slaves/*' -delete
+	# remove broken symlinks (QA rejects them); block device slaves/ entries are
+	# read by name only (diskstats backing devices), so they become empty files
+	find $(buildroot)/opt/node_exporter_tests/collector/fixtures -xtype l -path '*/slaves/*' -exec rm {} \; -exec touch {} \;
+	find $(buildroot)/opt/node_exporter_tests/collector/fixtures -xtype l -delete
 
 	echo "$(version)-$(release)" > $(buildroot)/usr/share/cloudlinux/cl_version
 
