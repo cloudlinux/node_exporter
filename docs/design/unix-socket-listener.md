@@ -10,7 +10,8 @@ HTTP authentication/TLS. Access control is delegated to filesystem permissions
 on the socket file.
 
 This feature is CloudLinux-specific — it does not exist in upstream
-`prometheus/node_exporter`.
+`prometheus/node_exporter`, and exporter-toolkit (checked up to v0.21.0) has
+no unix socket listener either.
 
 ## Flags
 
@@ -19,33 +20,60 @@ This feature is CloudLinux-specific — it does not exist in upstream
 | `--web.socket-path` | `""` (empty — disabled) | Filesystem path of the unix socket to listen on. When non-empty, disables the upstream TCP/TLS listener entirely. |
 | `--web.socket-permissions` | `0640` | `chmod` bits applied to the socket file after it is created. Accepts an integer (octal literal recognised by Go's `Int32` parser). |
 
-Flags are parsed by `kingpin` and defined in `node_exporter.go`. Both flags
-ship in the fork's main package and are always visible in `--help`, regardless
-of OS. Upstream flags (`--web.listen-address`, `--web.config.file`,
-`--web.systemd-socket`) are still present but are mutually exclusive with
-`--web.socket-path` at runtime (see Invariants below).
+Flags are parsed by `kingpin` and defined in `main()` in `node_exporter.go`.
+Both flags ship in the fork's main package and are always visible in
+`--help`, regardless of OS. The upstream web flags are registered by
+exporter-toolkit's `bootstrap.New`: `--web.listen-address`,
+`--web.config.file` and `--web.systemd-socket` are still present but are
+ignored when `--web.socket-path` is set (see Invariants below);
+`--web.telemetry-path`, `--web.disable-exporter-metrics` and
+`--web.max-requests` apply to both transports.
 
 ## Mechanism
 
-When `--web.socket-path` is non-empty, the exporter:
+Upstream (since v1.13.0) starts the exporter through exporter-toolkit's
+`bootstrap.Runner`: `runner.Run()` parses the flags, calls the runner's
+`MetricsHandlerFactory`, builds the HTTP mux (metrics path, landing page,
+routes the factory registered, e.g. `/debug/pprof/`) and then opens the
+listeners with `web.ListenAndServe` (TCP, vsock or systemd sockets). The
+toolkit offers no hook to replace the listener, so the fork hooks in at the
+factory: after `bootstrap.New`, `main()` wraps `runner.MetricsHandlerFactory`
+with `unixSocketFactory` (`node_exporter.go`). Bootstrap calls the factory
+after parsing flags and before opening any listener.
 
-1. Calls `os.Remove` on the socket path before binding. Any pre-existing file
+When `--web.socket-path` is empty (default), the wrapper returns the upstream
+handler unchanged and bootstrap serves TCP (+ optional TLS) exactly as
+upstream does. When it is non-empty, the wrapper builds the upstream handler
+and calls `serveUnixSocket`, which never returns to bootstrap on success:
+
+1. Registers on `http.DefaultServeMux` what bootstrap serves over TCP: the
+   metrics path wrapped in `Bootstrap.MaxRequestsHandler`
+   (`--web.max-requests`), the landing page built from `runner.LandingConfig`
+   unless the metrics path is `/`, and `net/http/pprof`, which registers
+   itself on `DefaultServeMux`.
+2. Logs the `Starting node_exporter` and `Build context` lines that
+   `runner.Run()` logs before listening.
+3. Calls `os.Remove` on the socket path before binding. Any pre-existing file
    (stale socket from a previous run, regular file, symlink) is removed
    unconditionally.
-2. Binds a `net.Listen("unix", path)` listener.
-3. `chmod`s the newly created socket to `--web.socket-permissions`. If the
-   chmod fails, the socket file is removed and the process exits non-zero.
-4. Serves HTTP over the unix listener in a goroutine.
-5. Installs a `SIGINT` / `SIGTERM` handler. On signal the server is closed and
-   the socket file is `os.Remove`d before exit (exit code 0).
-6. Registers a `defer os.Remove` on the socket path as a secondary cleanup in
-   case the signal handler path is bypassed.
+4. Binds a `net.Listen("unix", path)` listener.
+5. `chmod`s the newly created socket to `--web.socket-permissions`. If the
+   chmod fails, the error is returned: the listener is closed, which also
+   removes the socket file, and `main()` exits 1 with the error on stderr.
+6. Serves plain HTTP over the unix listener in a goroutine, with the same
+   `ReadHeaderTimeout` (one minute) as bootstrap's TCP server.
+   `--web.config.file` (TLS, basic auth) is not applied to the socket.
+7. Installs a `SIGINT` / `SIGTERM` handler. On signal the server is closed,
+   the socket file is `os.Remove`d and the process exits 0. If serving fails
+   instead, the error is returned, the deferred listener close removes the
+   socket file and `main()` exits 1.
 
-When `--web.socket-path` is empty (default), the exporter falls through to the
-upstream `web.ListenAndServe(...)` path using `toolkitFlags` (TCP + optional
-TLS). The unix-socket branch and the TCP branch are mutually exclusive in the
-same process.
+Bind errors are returned the same way (exit 1, error on stderr). Because the
+wrapper does not return to bootstrap in socket mode, `web.ListenAndServe` is
+never called and no TCP listener exists in that process.
 
+`SIGHUP` is not handled in either mode: Go's default action terminates the
+process and leaves the socket file behind (unchanged from earlier releases).
 ## Invariants
 
 - **Exclusive listener.** When `--web.socket-path` is non-empty, no TCP
@@ -57,7 +85,7 @@ same process.
 - **Socket is always removed on clean shutdown.** On `SIGINT`/`SIGTERM`, or
   on any error path after successful bind, the socket file must not be left
   behind. The e2e test `end-to-end-test.sh -s` asserts this explicitly and
-  fails the build if the socket file is still present after shutdown.
+  fails if the socket file is still present after shutdown.
 - **Permissions are applied before first accept.** The chmod step happens
   synchronously before the `Serve` goroutine is started, so no client can
   connect to an over-permissive socket.

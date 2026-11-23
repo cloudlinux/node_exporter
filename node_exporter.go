@@ -26,9 +26,7 @@ import (
 	"slices"
 	"sort"
 	"syscall"
-
-	"github.com/prometheus/common/promslog"
-	"github.com/prometheus/common/promslog/flag"
+	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/prometheus/client_golang/prometheus"
@@ -36,8 +34,8 @@ import (
 	versioncollector "github.com/prometheus/client_golang/prometheus/collectors/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/version"
+	"github.com/prometheus/exporter-toolkit/bootstrap"
 	"github.com/prometheus/exporter-toolkit/web"
-	"github.com/prometheus/exporter-toolkit/web/kingpinflag"
 
 	"github.com/prometheus/node_exporter/collector"
 )
@@ -104,7 +102,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// In exclude mode, filtered collectors = enabled - excludeed.
 		f := []string{}
 		for _, c := range h.enabledCollectors {
-			if (slices.Index(excludes, c)) == -1 {
+			if slices.Index(excludes, c) == -1 {
 				f = append(f, c)
 			}
 		}
@@ -192,18 +190,6 @@ func main() {
 			"web.socket-permissions",
 			"Permissions of unix socket file.",
 		).Default("0640").Int32()
-		metricsPath = kingpin.Flag(
-			"web.telemetry-path",
-			"Path under which to expose metrics.",
-		).Default("/metrics").String()
-		disableExporterMetrics = kingpin.Flag(
-			"web.disable-exporter-metrics",
-			"Exclude metrics about the exporter itself (promhttp_*, process_*, go_*).",
-		).Bool()
-		maxRequests = kingpin.Flag(
-			"web.max-requests",
-			"Maximum number of parallel scrape requests. Use 0 to disable.",
-		).Default("40").Int()
 		disableDefaultCollectors = kingpin.Flag(
 			"collector.disable-defaults",
 			"Set all collectors to disabled by default.",
@@ -211,83 +197,98 @@ func main() {
 		maxProcs = kingpin.Flag(
 			"runtime.gomaxprocs", "The target number of CPUs Go will run on (GOMAXPROCS)",
 		).Envar("GOMAXPROCS").Default("1").Int()
-		toolkitFlags = kingpinflag.AddFlags(kingpin.CommandLine, ":9100")
 	)
 
-	promslogConfig := &promslog.Config{}
-	flag.AddFlags(kingpin.CommandLine, promslogConfig)
-	kingpin.Version(version.Print("node_exporter"))
 	kingpin.CommandLine.UsageWriter(os.Stdout)
-	kingpin.HelpFlag.Short('h')
-	kingpin.Parse()
-	logger := promslog.New(promslogConfig)
+	runner := bootstrap.New(bootstrap.Config{
+		App:            kingpin.CommandLine,
+		Name:           "node_exporter",
+		Description:    "Prometheus Node Exporter",
+		DefaultAddress: ":9100",
+		MetricsHandlerFactory: func(b *bootstrap.Bootstrap) (http.Handler, error) {
+			if *disableDefaultCollectors {
+				collector.DisableDefaultCollectors()
+			}
+			if user, err := user.Current(); err == nil && user.Uid == "0" {
+				b.Logger.Warn("Node Exporter is running as root user. This exporter is designed to run as unprivileged user, root is not required.")
+			}
+			runtime.GOMAXPROCS(*maxProcs)
+			b.Logger.Debug("Go MAXPROCS", "procs", runtime.GOMAXPROCS(0))
+			b.Handle("/debug/pprof/", http.DefaultServeMux)
+			return newHandler(!b.DisableExporterMetrics, b.MaxRequests, b.Logger), nil
+		},
+	})
 
-	if *disableDefaultCollectors {
-		collector.DisableDefaultCollectors()
-	}
-	logger.Info("Starting node_exporter", "version", version.Info())
-	logger.Info("Build context", "build_context", version.BuildContext())
-	if user, err := user.Current(); err == nil && user.Uid == "0" {
-		logger.Warn("Node Exporter is running as root user. This exporter is designed to run as unprivileged user, root is not required.")
-	}
-	runtime.GOMAXPROCS(*maxProcs)
-	logger.Debug("Go MAXPROCS", "procs", runtime.GOMAXPROCS(0))
+	// CloudLinux: serve on a unix socket instead of TCP when --web.socket-path
+	// is set, see docs/design/unix-socket-listener.md.
+	runner.MetricsHandlerFactory = unixSocketFactory(runner, socketPath, socketPermissions)
 
-	http.Handle(*metricsPath, newHandler(!*disableExporterMetrics, *maxRequests, logger))
-	if *metricsPath != "/" {
-		landingConfig := web.LandingConfig{
-			Name:        "Node Exporter",
-			Description: "Prometheus Node Exporter",
-			Version:     version.Info(),
-			Links: []web.LandingLinks{
-				{
-					Address: *metricsPath,
-					Text:    "Metrics",
-				},
-			},
+	if err := runner.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+// unixSocketFactory wraps the runner's metrics handler factory to serve the
+// exporter on the unix socket given by --web.socket-path (CloudLinux fork).
+// exporter-toolkit has no unix socket listener; bootstrap calls the factory
+// after parsing flags and before opening its TCP listeners, so in socket mode
+// the wrapper serves there and never returns to bootstrap: no TCP listener is
+// opened. SIGINT/SIGTERM remove the socket file and exit 0.
+func unixSocketFactory(runner *bootstrap.Runner, path *string, permissions *int32) bootstrap.MetricsHandlerFactory {
+	factory := runner.MetricsHandlerFactory
+	return func(b *bootstrap.Bootstrap) (http.Handler, error) {
+		handler, err := factory(b)
+		if err != nil || *path == "" {
+			return handler, err
 		}
+		return nil, serveUnixSocket(runner, b, handler, *path, os.FileMode(*permissions))
+	}
+}
+
+func serveUnixSocket(runner *bootstrap.Runner, b *bootstrap.Bootstrap, handler http.Handler, path string, mode os.FileMode) error {
+	// Serve what bootstrap serves over TCP: the metrics path, the landing
+	// page and net/http/pprof, which registers itself on DefaultServeMux.
+	http.Handle(b.MetricsPath, b.MaxRequestsHandler(handler))
+	if b.MetricsPath != "/" {
+		landingConfig := runner.LandingConfig
+		landingConfig.Links = append(landingConfig.Links, web.LandingLinks{
+			Address: b.MetricsPath,
+			Text:    "Metrics",
+		})
 		landingPage, err := web.NewLandingPage(landingConfig)
 		if err != nil {
-			logger.Error(err.Error())
-			os.Exit(1)
+			return err
 		}
 		http.Handle("/", landingPage)
 	}
+	b.Logger.Info("Starting node_exporter", "version", version.Info())
+	b.Logger.Info("Build context", "build_context", version.BuildContext())
 
-	server := &http.Server{}
-	if *socketPath != "" {
-		os.Remove(*socketPath)
-		unixListener, err := net.Listen("unix", *socketPath)
-		if err != nil {
-			logger.Error("Error listening on socket", "err", err)
-			os.Exit(1)
-		}
-		if err := os.Chmod(*socketPath, os.FileMode(*socketPermissions)); err != nil {
-			logger.Error("Error changing socket permissions", "err", err)
-			os.Remove(*socketPath)
-			os.Exit(1)
-		}
-		defer os.Remove(*socketPath)
-
-		go func() {
-			if err := server.Serve(unixListener); err != nil && err != http.ErrServerClosed {
-				logger.Error("Error serving", "err", err)
-				os.Exit(1)
-			}
-		}()
-
-		done := make(chan os.Signal, 1)
-		signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
-		logger.Info("Listening on", "path", *socketPath)
-		<-done
-		logger.Info("Connection closed on", "path", *socketPath)
-		server.Close()
-		os.Remove(*socketPath)
-		os.Exit(0)
-	} else {
-		if err := web.ListenAndServe(server, toolkitFlags, logger); err != nil {
-			logger.Error(err.Error())
-			os.Exit(1)
-		}
+	os.Remove(path)
+	listener, err := net.Listen("unix", path)
+	if err != nil {
+		return fmt.Errorf("error listening on socket: %w", err)
 	}
+	// Closing the listener also removes the socket file.
+	defer listener.Close()
+	if err := os.Chmod(path, mode); err != nil {
+		return fmt.Errorf("error changing socket permissions: %w", err)
+	}
+
+	server := &http.Server{ReadHeaderTimeout: time.Minute}
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
+	errc := make(chan error, 1)
+	go func() { errc <- server.Serve(listener) }()
+	b.Logger.Info("Listening on", "path", path)
+	select {
+	case <-done:
+		b.Logger.Info("Connection closed on", "path", path)
+		server.Close()
+		os.Remove(path)
+		os.Exit(0)
+	case err = <-errc:
+	}
+	return err
 }

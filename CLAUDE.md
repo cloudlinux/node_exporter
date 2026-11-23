@@ -7,12 +7,16 @@ consumed internally by the `cl_plus` telemetry stack. Upstream `master` is
 merged in periodically; all CloudLinux-specific changes live on top of the
 upstream history.
 
+**Current upstream base:** `v1.13.1` (`0192dd89`), merged in CLOS-9230.
+Update this line with every upstream sync.
+
 ## What the fork adds
 
 The fork is deliberately small. Out of the box upstream, plus:
 
 1. A unix-socket transport for `/metrics` (`--web.socket-path`,
-   `--web.socket-permissions`).
+   `--web.socket-permissions`), hooked into upstream's exporter-toolkit
+   `bootstrap` startup through the metrics handler factory.
 2. CloudLinux packaging recipes (`node_exporter.spec`, `debian/`).
 3. A versioned tests subpackage at `/opt/node_exporter_tests/` used by the
    CloudLinux QA pipeline.
