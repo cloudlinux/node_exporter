@@ -84,23 +84,23 @@ its parent directory, and setting the scraping group.
 | Metrics over unix socket match metrics over TCP | `end-to-end-test.sh -s` (invoked by `make test-e2e`) | E2E | Full `/metrics` exposition via `curl --unix-socket` must diff-equal the fixture produced via TCP. |
 | Socket file is removed on clean shutdown | `end-to-end-test.sh` finish trap (socket mode) | E2E | After SIGTERM, `ls` on the socket path must fail; test exits non-zero otherwise. |
 | Both transports still work after refactors | `Makefile` `test-e2e` target | E2E | Runs the e2e suite twice — once with TCP (`--web.listen-address`) and once with `--web.socket-path`. |
+| Default permissions are applied | `end-to-end-test.sh -s` | E2E | Without `--web.socket-permissions` (as `cl_plus` runs it) the socket file has mode `640`. |
+| No TCP listener in socket mode | `end-to-end-test.sh -s` | E2E | `ss -ltnp` must list no TCP listener owned by the exporter process (the default `:9100` included). |
+| Non-default permissions, ignored TCP flags, SIGTERM exit | `TestUnixSocket` in `node_exporter_test.go` | Go (runs the binary) | `--web.socket-permissions 0600` gives a `0600` socket; the `--web.listen-address` passed alongside is not served; SIGTERM exits 0 and removes the socket. Like the other binary tests there, it is skipped unless the binary is at `$GOPATH/bin/node_exporter`, so it does not run in package builds. |
 
 ### Known gaps
 
-- **Permission mode semantics are not tested.** No automated test verifies
-  that `--web.socket-permissions` actually produces the requested mode on
-  disk, nor that a non-default value (e.g., `0600`, `0660`) is honoured.
-- **Concurrent-start / stale-socket scenarios are not tested.** The e2e
-  suite does not cover the case where a previous process crashed leaving a
-  socket file behind, nor the case where two exporters race on the same
-  path.
+- **Concurrent-start / stale-socket scenarios are barely tested.** The e2e
+  suite pre-creates the socket path as a regular file, so removal of a
+  stale file at startup is exercised, but a stale socket left by a crashed
+  process and two exporters racing on the same path are not.
 - **Chmod-failure path is not tested.** Exit behaviour when `chmod` fails
   (e.g., socket path on a filesystem that rejects mode changes) is not
   exercised.
 - **Signal-handling coverage is shallow.** Only the graceful
   `SIGINT`/`SIGTERM` path is exercised; `SIGKILL` or panic paths (which
   leak the socket file by design) are not asserted anywhere.
-- **No assertion that TCP flags are ignored in socket mode.** A user
-  passing both `--web.listen-address` and `--web.socket-path` gets
-  socket-only behaviour silently; this is not documented in `--help` or
-  checked at flag-parse time.
+- **Ignoring TCP flags in socket mode is silent.** A user passing both
+  `--web.listen-address` and `--web.socket-path` gets socket-only behaviour
+  (asserted by `TestUnixSocket`); this is not documented in `--help` or
+  reported at flag-parse time.

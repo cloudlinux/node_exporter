@@ -370,6 +370,22 @@ sleep 1
   fi
 ) | grep --text -E -v "${skip_re}" > "${generated_metrics}"
 
+if [ ${socket} -ne 0 ]; then
+  # The default --web.socket-permissions (0640, what cl_plus runs with) is
+  # applied to the socket file.
+  socket_mode=$(stat -c '%a' "${unix_socket}")
+  if [ "${socket_mode}" != "640" ]; then
+    echo "Unix socket has permissions ${socket_mode}, want 640"
+    exit 1
+  fi
+  # No TCP listener is opened in unix socket mode.
+  tcp_listeners=$(ss -ltnp)
+  if grep -q "pid=$(cat "${tmpdir}/node_exporter.pid")," <<< "${tcp_listeners}"; then
+    echo "Node exporter opened a TCP listener in unix socket mode"
+    exit 1
+  fi
+fi
+
 # The following ignore-list is only applicable to the VMs used to run E2E tests on platforms for which containerized environments are not available.
 # However, owing to this, there are some non-deterministic metrics that end up generating samples, unlike their containerized counterparts, for e.g., node_network_receive_bytes_total. 
 non_deterministic_metrics=$(cat << METRICS

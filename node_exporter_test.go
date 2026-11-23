@@ -14,12 +14,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -105,6 +108,67 @@ func TestHandlingOfDuplicatedMetrics(t *testing.T) {
 
 	if err := runCommandAndTests(exporter, address, test); err != nil {
 		t.Error(err)
+	}
+}
+
+// TestUnixSocket covers the CloudLinux unix socket transport, see
+// docs/design/unix-socket-listener.md.
+func TestUnixSocket(t *testing.T) {
+	if _, err := os.Stat(binary); err != nil {
+		t.Skipf("node_exporter binary not available, try to run `make build` first: %s", err)
+	}
+
+	socket := filepath.Join(t.TempDir(), "node_exporter.socket")
+	exporter := exec.Command(binary,
+		"--web.socket-path", socket,
+		"--web.socket-permissions", "0600",
+		"--web.listen-address", address)
+	if err := exporter.Start(); err != nil {
+		t.Fatalf("failed to start command: %s", err)
+	}
+	defer exporter.Process.Kill()
+
+	client := &http.Client{Transport: &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "unix", socket)
+		},
+	}}
+	var err error
+	for range 10 {
+		time.Sleep(500 * time.Millisecond)
+		var resp *http.Response
+		if resp, err = client.Get("http://localhost/metrics"); err == nil {
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				err = fmt.Errorf("want /metrics status code %d, have %d", http.StatusOK, resp.StatusCode)
+			}
+			break
+		}
+	}
+	if err != nil {
+		t.Fatalf("metrics are not served on the unix socket: %s", err)
+	}
+
+	fi, err := os.Stat(socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi.Mode()&os.ModeSocket == 0 || fi.Mode().Perm() != 0600 {
+		t.Errorf("want a socket with permissions 0600, have %s", fi.Mode())
+	}
+
+	if err := queryExporter(address); err == nil {
+		t.Errorf("want no TCP listener on %s in unix socket mode", address)
+	}
+
+	if err := exporter.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatal(err)
+	}
+	if err := exporter.Wait(); err != nil {
+		t.Errorf("want clean exit on SIGTERM, have %s", err)
+	}
+	if _, err := os.Stat(socket); !os.IsNotExist(err) {
+		t.Errorf("want the socket file removed on SIGTERM, have %v", err)
 	}
 }
 
