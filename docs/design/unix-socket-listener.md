@@ -112,8 +112,8 @@ its parent directory, and setting the scraping group.
 | Metrics over unix socket match metrics over TCP | `end-to-end-test.sh -s` (invoked by `make test-e2e`) | E2E | Full `/metrics` exposition via `curl --unix-socket` must diff-equal the fixture produced via TCP. |
 | Socket file is removed on clean shutdown | `end-to-end-test.sh` finish trap (socket mode) | E2E | After SIGTERM, `ls` on the socket path must fail; test exits non-zero otherwise. |
 | Both transports still work after refactors | `Makefile` `test-e2e` target | E2E | Runs the e2e suite twice — once with TCP (`--web.listen-address`) and once with `--web.socket-path`. |
-| Default permissions are applied | `end-to-end-test.sh -s` | E2E | Without `--web.socket-permissions` (as `cl_plus` runs it) the socket file has mode `640`. |
-| No TCP listener in socket mode | `end-to-end-test.sh -s` | E2E | `ss -ltnp` must list no TCP listener owned by the exporter process (the default `:9100` included). |
+| Default permissions are applied | `end-to-end-test.sh -s` | E2E | Without `--web.socket-permissions` (as `cl_plus` runs it) the socket file's `ls -ld` mode string starts with `srw-r-----`. |
+| No TCP listener in socket mode | `end-to-end-test.sh -s` | E2E | The exporter also gets `--web.listen-address=127.0.0.1:<port>`; `curl` to that address must fail with exit code 7 (connection refused) while the socket serves metrics. This shows bootstrap never opens its listeners; it does not look for TCP listeners on other addresses. The check uses only `ls` and `curl`, which the script already needs, so it runs unchanged on Linux and on the BSD, Solaris and macOS jobs of the upstream workflows. |
 | Non-default permissions, ignored TCP flags, SIGTERM exit | `TestUnixSocket` in `node_exporter_test.go` | Go (runs the binary) | `--web.socket-permissions 0600` gives a `0600` socket; the `--web.listen-address` passed alongside is not served; SIGTERM exits 0 and removes the socket. Like the other binary tests there, it is skipped unless the binary is at `$GOPATH/bin/node_exporter`, so it does not run in package builds. |
 
 ### Known gaps
@@ -130,5 +130,5 @@ its parent directory, and setting the scraping group.
   leak the socket file by design) are not asserted anywhere.
 - **Ignoring TCP flags in socket mode is silent.** A user passing both
   `--web.listen-address` and `--web.socket-path` gets socket-only behaviour
-  (asserted by `TestUnixSocket`); this is not documented in `--help` or
-  reported at flag-parse time.
+  (asserted by `TestUnixSocket` and `end-to-end-test.sh -s`); this is not
+  documented in `--help` or reported at flag-parse time.

@@ -30,7 +30,7 @@ package (`cl_plus`).
 | Path | Purpose |
 |------|---------|
 | `/opt/node_exporter_tests/node_exporter` | Second copy of the built binary, used by the e2e harness. |
-| `/opt/node_exporter_tests/end-to-end-test.sh` | E2E harness script. Needs `curl` and `diff` (diffutils), and for `-s` also `stat` and `ss` (iproute), on the test host; the subpackage declares no dependencies (`AutoReq: 0`). |
+| `/opt/node_exporter_tests/end-to-end-test.sh` | E2E harness script. Needs `curl` and `diff` (diffutils) on the test host, in both modes; the subpackage declares no dependencies (`AutoReq: 0`). |
 | `/opt/node_exporter_tests/collector/` | Fixture data (procfs/sysfs/udev snapshots). Both recipes strip broken symlinks under `fixtures/` during install, so the package ships none (see Invariants). The five broken `sys/block/dm-*/slaves/*` links are replaced by empty regular files of the same name instead: the diskstats collector only lists the entry names there (procfs `SysBlockDeviceUnderlyingDevices`, `Readdirnames`) for `node_disk_device_mapper_backing_device_info` (upstream v1.13.0+), and without them the e2e output misses five series in both modes. |
 | `/opt/node_exporter_tests/tools/tools` | Build-tag matcher helper used by the e2e script. |
 

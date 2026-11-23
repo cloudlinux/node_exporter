@@ -273,7 +273,8 @@ EOF
 
 if [ ${socket} -ne 0 ]; then
   touch "${unix_socket}"
-  connection_params="--web.socket-path=${unix_socket}"
+  # The TCP address is passed as well: unix socket mode must not listen on it.
+  connection_params="--web.socket-path=${unix_socket} --web.listen-address=127.0.0.1:${port}"
 else
   connection_params="--web.listen-address=127.0.0.1:${port}"
 fi
@@ -375,15 +376,18 @@ sleep 1
 if [ ${socket} -ne 0 ]; then
   # The default --web.socket-permissions (0640, what cl_plus runs with) is
   # applied to the socket file.
-  socket_mode=$(stat -c '%a' "${unix_socket}")
-  if [ "${socket_mode}" != "640" ]; then
-    echo "Unix socket has permissions ${socket_mode}, want 640"
+  socket_mode=$(ls -ld "${unix_socket}")
+  socket_mode=${socket_mode:0:10}
+  if [ "${socket_mode}" != "srw-r-----" ]; then
+    echo "Unix socket has mode ${socket_mode}, want srw-r-----"
     exit 1
   fi
-  # No TCP listener is opened in unix socket mode.
-  tcp_listeners=$(ss -ltnp)
-  if grep -q "pid=$(cat "${tmpdir}/node_exporter.pid")," <<< "${tcp_listeners}"; then
-    echo "Node exporter opened a TCP listener in unix socket mode"
+  # No TCP listener is opened in unix socket mode: connecting to the
+  # --web.listen-address passed above must be refused (curl exit code 7).
+  tcp_rc=0
+  curl -s -o /dev/null "http://127.0.0.1:${port}/" || tcp_rc=$?
+  if [ ${tcp_rc} -ne 7 ]; then
+    echo "Node exporter accepted a TCP connection on 127.0.0.1:${port} in unix socket mode (curl exit code ${tcp_rc}, want 7)"
     exit 1
   fi
 fi

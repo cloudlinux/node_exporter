@@ -137,7 +137,7 @@ func TestUnixSocket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fi.Mode()&os.ModeSocket == 0 || fi.Mode().Perm() != 0600 {
+	if fi.Mode()&os.ModeSocket == 0 || fi.Mode().Perm() != 0o600 {
 		t.Errorf("want a socket with permissions 0600, have %s", fi.Mode())
 	}
 
