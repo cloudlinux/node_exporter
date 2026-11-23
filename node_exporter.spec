@@ -4,7 +4,7 @@ Autoreq: 0
 %define pkg_version_file %{cl_dir}%{name}
 
 Name: cl-node-exporter
-Version: 1.2.1
+Version: 1.2.2
 Release: 1%{dist}.cloudlinux
 Summary: CL Node Exporter tool
 License: Apache License, Version 2.0
@@ -38,9 +38,9 @@ This package provides end-to-end tests for Node Exporter tool
 %build
 # download new version of Go compiler
 %ifarch x86_64 amd64 ia32e
-curl https://dl.google.com/go/go1.24.0.linux-amd64.tar.gz --output %{_tmppath}/go.tar.gz
+curl https://dl.google.com/go/go1.27.4.linux-amd64.tar.gz --output %{_tmppath}/go.tar.gz
 %else
-curl https://dl.google.com/go/go1.24.0.linux-386.tar.gz --output %{_tmppath}/go.tar.gz
+curl https://dl.google.com/go/go1.27.4.linux-386.tar.gz --output %{_tmppath}/go.tar.gz
 %endif
 tar xzf %{_tmppath}/go.tar.gz -C %{_tmppath}
 export PATH=$PATH:%{_tmppath}/go/bin
@@ -72,7 +72,9 @@ install -D -m 755 node_exporter $RPM_BUILD_ROOT/opt/node_exporter_tests/node_exp
 mkdir -p $RPM_BUILD_ROOT/opt/node_exporter_tests/tools
 install -D -m 755 tools/tools $RPM_BUILD_ROOT/opt/node_exporter_tests/tools/tools
 
-# remove broken symlinks
+# remove broken symlinks (QA rejects them); block device slaves/ entries are
+# read by name only (diskstats backing devices), so they become empty files
+find $RPM_BUILD_ROOT/opt/node_exporter_tests/collector/fixtures -xtype l -path '*/slaves/*' -exec rm {} \; -exec touch {} \;
 find $RPM_BUILD_ROOT/opt/node_exporter_tests/collector/fixtures -xtype l -delete
 
 # write package version to file
@@ -93,6 +95,9 @@ exit 0
 
 
 %changelog
+
+* Mon Nov 23 2026 Roman Krompets <rkrompets@cloudlinux.com> 1.2.2-1
+- CLOS-9230: Sync repository with upstream (v1.13.1)
 
 * Fri Apr 24 2026 Roman Krompets <rkrompets@cloudlinux.com> 1.2.1-1
 - CLPRO-3024: Sync repository with upstream (v1.11.1)

@@ -7,6 +7,8 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    cooldown:
+      default-days: 7
     groups:
       aws:
         patterns:
@@ -20,10 +22,15 @@ updates:
       k8s.io:
         patterns:
           - "k8s.io/*"
+      prometheus:
+        patterns:
+          - "github.com/prometheus/*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
+    cooldown:
+      default-days: 7
     groups:
       promci:
         patterns:
@@ -39,3 +46,4 @@ updates:
       - .github/workflows/govulncheck.yml
       - .github/workflows/scorecards.yml
       - .github/workflows/stale.yml
+      - .github/workflows/zizmor.yml

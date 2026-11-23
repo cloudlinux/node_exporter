@@ -29,7 +29,7 @@ _clshare_plus   := /usr/share/cloudlinux/cl_plus
 	dh $@
 
 override_dh_auto_build:
-	curl https://dl.google.com/go/go1.24.0.linux-amd64.tar.gz --output /tmp/go.tar.gz
+	curl https://dl.google.com/go/go1.27.4.linux-amd64.tar.gz --output /tmp/go.tar.gz
 	tar xzf /tmp/go.tar.gz -C /tmp/
 	make build
 	make tools
@@ -51,10 +51,16 @@ override_dh_auto_install:
 	mkdir -p $(buildroot)/opt/node_exporter_tests/tools
 	install -D -m 755 tools/tools $(buildroot)/opt/node_exporter_tests/tools/tools
 
-	# remove broken symlinks
+	# remove broken symlinks (QA rejects them); block device slaves/ entries are
+	# read by name only (diskstats backing devices), so they become empty files
+	find $(buildroot)/opt/node_exporter_tests/collector/fixtures -xtype l -path '*/slaves/*' -exec rm {} \; -exec touch {} \;
 	find $(buildroot)/opt/node_exporter_tests/collector/fixtures -xtype l -delete
 
 	echo "$(version)-$(release)" > $(buildroot)/usr/share/cloudlinux/cl_version
+
+	# dh_movefiles moves files and symlinks only: create the empty fixture
+	# directories (e.g. sys/block/dm-5/slaves/sd*) in the tests package
+	cd $(buildroot) && find ./opt/node_exporter_tests/collector -type d -empty -exec install -d $(CURDIR)/debian/$(name)-tests/{} \;
 
 	# Packaging
 	dh_movefiles -p$(name) \

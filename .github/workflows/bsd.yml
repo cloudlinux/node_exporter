@@ -13,7 +13,7 @@ permissions:
 
 env:
   GNU_TAR_VERSION: "1.35"
-  GO_VERSION: "1.26.0"
+  GO_VERSION: "1.27.1"
 
 # To spin up one of the VMs below, see the "Debug Shell" section here: https://github.com/vmactions
 jobs:
@@ -22,13 +22,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - name: test-e2e
-        uses: vmactions/freebsd-vm@5a72679103d223925653750faa878a143340fbd0  # v1.5.0
+        uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc  # v1.5.9
         with:
-          release: "15.0"
+          release: "15"
           copyback: false
           envs: 'GO_VERSION GNU_TAR_VERSION'
           usesh: true
@@ -76,11 +76,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - name: test-e2e
-        uses: vmactions/openbsd-vm@18edb32f4e48dae5865d7b8b3a9587bc01218a20  # v1.4.4
+        uses: vmactions/openbsd-vm@f1ca8bc8ecc5b6ef7218e5b914836e067e1546d3  # v1.4.9
         with:
           copyback: false
           envs: 'GO_VERSION GNU_TAR_VERSION'
@@ -129,11 +129,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - name: test-e2e
-        uses: vmactions/netbsd-vm@1d9767765fd3f986e6de3aff4b1148f0c3a45f01  # v1.4.1
+        uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92  # v1.5.2
         with:
           copyback: false
           envs: 'GO_VERSION GNU_TAR_VERSION'
@@ -180,11 +180,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - name: test-e2e
-        uses: vmactions/dragonflybsd-vm@b4468429bb9ab60b14600c6eeeb6464427f29391  # v1.2.9
+        uses: vmactions/dragonflybsd-vm@4ab776fa9f914fbea72f13715b451e77e7ef5c41  # v1.3.4
         with:
           copyback: false
           envs: 'GO_VERSION'
@@ -234,11 +234,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - name: test-e2e
-        uses: vmactions/solaris-vm@d30dd6c228c8661ade859e36ead7660b9a62efcc  # v1.3.7
+        uses: vmactions/solaris-vm@1c166978f5a2c1f87f1c9d4d8dd85ae3d1eff6f7  # v1.4.2
         with:
           copyback: false
           envs: 'GO_VERSION'
@@ -296,7 +296,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - name: Install dependencies
@@ -330,11 +330,15 @@ jobs:
 
           echo "::group::Print environment information"
           uname -a
+          sw_vers
+          sysctl hw.memsize hw.ncpu
+          diskutil list
+          ifconfig -l
           echo "GOOS: $(go env GOOS)"
           echo "GOARCH: $(go env GOARCH)"
           echo "::endgroup::"
 
           echo "::group::Run End-to-End Tests"
           git config --global --add safe.directory $(pwd)
-          make test-e2e E2E_EXTRA_FLAGS='--collector.diskstats.device-include=disk[04]'
+          make test-e2e E2E_EXTRA_FLAGS='--collector.diskstats.device-include=disk0'
           echo "::endgroup::"

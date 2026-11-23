@@ -74,6 +74,7 @@ enabled_collectors=$(cat << COLLECTORS
   processes
   qdisc
   rapl
+  resctrl
   schedstat
   slabinfo
   sockstat
@@ -180,6 +181,7 @@ collector_flags=$(cat << FLAGS
   --collector.netdev.device-include=lo
   --collector.qdisc.device-include=(wlan0|eth0)
   --collector.qdisc.fixtures=collector/fixtures/qdisc/
+  --collector.resctrl.path=collector/fixtures/resctrl
   --collector.stat.softirq
   --collector.sysctl.include-info=kernel.seccomp.actions_avail
   --collector.sysctl.include=fs.file-nr
@@ -271,7 +273,8 @@ EOF
 
 if [ ${socket} -ne 0 ]; then
   touch "${unix_socket}"
-  connection_params="--web.socket-path=${unix_socket}"
+  # The TCP address is passed as well: unix socket mode must not listen on it.
+  connection_params="--web.socket-path=${unix_socket} --web.listen-address=127.0.0.1:${port}"
 else
   connection_params="--web.listen-address=127.0.0.1:${port}"
 fi
@@ -293,7 +296,7 @@ generated_metrics="${tmpdir}/e2e-output.txt"
 for os in freebsd openbsd netbsd solaris dragonfly darwin; do
   if [ "${GOHOSTOS}" = "${os}" ]; then
     generated_metrics="${tmpdir}/e2e-output-${GOHOSTOS}.txt"
-    fixture_metrics="${fixture_metrics::-4}-${GOHOSTOS}.txt"
+    fixture_metrics="${fixture_metrics%.txt}-${GOHOSTOS}.txt"
   fi
 done
 
@@ -370,6 +373,25 @@ sleep 1
   fi
 ) | grep --text -E -v "${skip_re}" > "${generated_metrics}"
 
+if [ ${socket} -ne 0 ]; then
+  # The default --web.socket-permissions (0640, what cl_plus runs with) is
+  # applied to the socket file.
+  socket_mode=$(ls -ld "${unix_socket}")
+  socket_mode=${socket_mode:0:10}
+  if [ "${socket_mode}" != "srw-r-----" ]; then
+    echo "Unix socket has mode ${socket_mode}, want srw-r-----"
+    exit 1
+  fi
+  # No TCP listener is opened in unix socket mode: connecting to the
+  # --web.listen-address passed above must be refused (curl exit code 7).
+  tcp_rc=0
+  curl -s -o /dev/null "http://127.0.0.1:${port}/" || tcp_rc=$?
+  if [ ${tcp_rc} -ne 7 ]; then
+    echo "Node exporter accepted a TCP connection on 127.0.0.1:${port} in unix socket mode (curl exit code ${tcp_rc}, want 7)"
+    exit 1
+  fi
+fi
+
 # The following ignore-list is only applicable to the VMs used to run E2E tests on platforms for which containerized environments are not available.
 # However, owing to this, there are some non-deterministic metrics that end up generating samples, unlike their containerized counterparts, for e.g., node_network_receive_bytes_total. 
 non_deterministic_metrics=$(cat << METRICS
@@ -409,6 +431,7 @@ non_deterministic_metrics=$(cat << METRICS
   node_memory_swapped_in_bytes_total
   node_memory_swapped_out_bytes_total
   node_memory_swap_size_bytes
+  node_memory_total_bytes
   node_memory_wired_bytes
   node_netstat_tcp_receive_packets_total
   node_netstat_tcp_transmit_packets_total
@@ -433,6 +456,7 @@ non_deterministic_metrics=$(cat << METRICS
   node_network_receive_bytes_total
   node_network_receive_multicast_total
   node_network_transmit_multicast_total
+  node_thermal_temperature_celsius
   node_zfs_abdstats_linear_count_total
   node_zfs_abdstats_linear_data_bytes
   node_zfs_abdstats_scatter_chunk_waste_bytes
@@ -442,6 +466,7 @@ non_deterministic_metrics=$(cat << METRICS
   node_zfs_arcstats_anon_bytes
   node_zfs_arcstats_c_bytes
   node_zfs_arcstats_c_max_bytes
+  node_zfs_arcstats_c_min_bytes
   node_zfs_arcstats_data_bytes
   node_zfs_arcstats_demand_data_hits_total
   node_zfs_arcstats_demand_data_misses_total

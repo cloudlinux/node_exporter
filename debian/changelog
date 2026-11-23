@@ -1,3 +1,10 @@
+cl-node-exporter (1.2.2-1) stable; urgency=medium
+
+  [ Roman Krompets ]
+  * CLOS-9230: Sync node_exporter with upstream (v1.13.1)
+
+ -- Roman Krompets <rkrompets@cloudlinux.com>  Mon, 23 Nov 2026 10:00:00 +0000
+
 cl-node-exporter (1.2.1-1) stable; urgency=medium
 
   [ Roman Krompets ]
